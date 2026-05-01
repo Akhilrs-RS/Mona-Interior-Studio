@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mona_interior_db
+    ports:
+      - "5433:5432"
+    healthcheck:
+      # This command checks if the DB is ready to accept connections
+      test: ["CMD-SHELL", "pg_isready -U user -d mona_interior_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build: ./server
+    ports:
+      - "5001:5000"
+    depends_on:
+      db:
+        condition: service_healthy # The server waits for the DB's healthcheck to pass
+    environment:
+      DATABASE_URL: postgres://user:password@db:5432/mona_interior_db
+
+  client:
+    build: ./client
+    ports:
+      - "5173:5173"
