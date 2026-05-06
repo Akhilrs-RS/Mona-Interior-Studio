@@ -11,9 +11,6 @@ import {
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-const getData = (key) => {
-  try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
-};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -31,12 +28,29 @@ const Dashboard = () => {
   const [attendance, setAttendance] = useState({});
 
   useEffect(() => {
-    setInvoices(getData("monaInvoices"));
-    setExpenses(getData("monaExpenses"));
-    setCrm(getData("monaCRM"));
-    setSites(getData("monaSites"));
-    setEmployees(getData("monaEmployees"));
-    setAttendance(getData("monaAttendance") || {});
+    const fetchAllData = async () => {
+      try {
+        const [invRes, expRes, crmRes, siteRes, empRes, attRes] = await Promise.all([
+          fetch('http://localhost:5000/api/finance/invoices').then(r => r.json()),
+          fetch('http://localhost:5000/api/finance/expenses').then(r => r.json()),
+          fetch('http://localhost:5000/api/crm').then(r => r.json()),
+          fetch('http://localhost:5000/api/sites').then(r => r.json()),
+          fetch('http://localhost:5000/api/employees').then(r => r.json()),
+          fetch('http://localhost:5000/api/attendance').then(r => r.json()),
+        ]);
+
+        // Fix dates if they come as full ISO strings
+        setInvoices(invRes.map(i => ({...i, date: i.date ? i.date.split('T')[0] : ''})));
+        setExpenses(expRes.map(e => ({...e, date: e.date ? e.date.split('T')[0] : ''})));
+        setCrm(crmRes.map(c => ({...c, date: c.date ? c.date.split('T')[0] : ''})));
+        setSites(siteRes.map(s => ({...s, startDate: s.start_date, endDate: s.end_date})));
+        setEmployees(empRes);
+        setAttendance(attRes || {});
+      } catch (err) {
+        console.error("Failed to load dashboard data", err);
+      }
+    };
+    fetchAllData();
   }, []);
 
   // ── DATE FILTER HELPER ──────────────────────────────────────────────────────
@@ -213,8 +227,8 @@ const Dashboard = () => {
             </h3>
             <p className="text-[10px] font-bold text-slate-400 mt-0.5">Gap = Pending Payments · 6 Month View</p>
           </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height={224} minWidth={1}>
               <BarChart data={getRevenueTrend()} margin={{ top:5, right:10, left:0, bottom:5 }} barCategoryGap="30%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize:11, fontWeight:700, fill:'#94a3b8' }} />
@@ -240,8 +254,8 @@ const Dashboard = () => {
             </h3>
             <p className="text-[10px] font-bold text-slate-400 mt-0.5">Total outflows tracked · 6 Month View</p>
           </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height={224} minWidth={1}>
               <BarChart data={getExpenseTrend()} margin={{ top:5, right:10, left:0, bottom:5 }} barCategoryGap="40%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize:11, fontWeight:700, fill:'#94a3b8' }} />
@@ -280,9 +294,9 @@ const Dashboard = () => {
           </div>
 
           {leadSources.length > 0 ? (
-            <div className="h-48">
+            <div className="h-48 w-full">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Lead Sources</p>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={192} minWidth={1}>
                 <PieChart>
                   <Pie data={leadSources} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={4} dataKey="value" stroke="none">
                     {leadSources.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -312,9 +326,9 @@ const Dashboard = () => {
           </div>
 
           {siteStatus.length > 0 ? (
-            <div className="h-48">
+            <div className="h-48 w-full">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Status Distribution</p>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={192} minWidth={1}>
                 <BarChart data={siteStatus} barSize={32} margin={{ top:0, right:10, left:-10, bottom:0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize:11, fontWeight:700, fill:'#94a3b8' }} />
@@ -388,7 +402,7 @@ const Dashboard = () => {
                 { label: "Add Employee",     path: "/employees",  icon: Users    },
                 { label: "Log Attendance",   path: "/attendance", icon: Calendar },
               ].map(({ label, path, icon: Icon }) => (
-                <button key={path} onClick={() => navigate(path)}
+                <button key={path} onClick={() => navigate(path, { state: { newSession: (path === "/billing" || path === "/quotations") } })}
                   className="w-full bg-white/10 hover:bg-white text-white hover:text-slate-900 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2">
                   <Icon size={15} /> {label}
                 </button>

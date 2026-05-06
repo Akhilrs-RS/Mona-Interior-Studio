@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useReactToPrint } from "react-to-print";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import PrintableQuotation from "../components/PrintableQuotation";
 import {
   Trash2,
@@ -10,10 +10,13 @@ import {
   History,
   ArrowRight,
   FileText,
+  Plus,
+  X,
 } from "lucide-react";
 
 export default function QuotationPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [items, setItems] = useState([]);
   const [clientName, setClientName] = useState("");
@@ -30,10 +33,83 @@ export default function QuotationPage() {
     rate: "",
   });
 
+  // ── MULTI-SESSION LOGIC ──────────────────────────────────────
+  const [sessions, setSessions] = useState(() => {
+    const saved = localStorage.getItem("quotation_sessions");
+    return saved ? JSON.parse(saved) : [{ id: 'default', title: 'New Quote', data: null }];
+  });
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    return localStorage.getItem("active_quotation_session") || 'default';
+  });
+
+  // Load session data when active session changes
+  useEffect(() => {
+    const session = sessions.find(s => s.id === activeSessionId);
+    if (session && session.data) {
+      const d = session.data;
+      setItems(d.items || []);
+      setClientName(d.clientName || "");
+      setClientAddress(d.clientAddress || "");
+      setBillType(d.billType || "GST");
+      if(d.quoteNo) setQuoteNo(d.quoteNo);
+    } else {
+      // Clear for a new session if no data
+      setItems([]);
+      setClientName("");
+      setClientAddress("");
+      setBillType("GST");
+      const last = localStorage.getItem("lastQuoteNumber") || "100";
+      setQuoteNo(`MI/QT/${parseInt(last) + 1}/26-27`);
+    }
+    localStorage.setItem("active_quotation_session", activeSessionId);
+  }, [activeSessionId]);
+
+  // Persist current state to sessions array
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSessions(prev => prev.map(s => s.id === activeSessionId ? {
+        ...s,
+        title: clientName || "New Quote",
+        data: { items, clientName, clientAddress, billType, quoteNo }
+      } : s));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [items, clientName, clientAddress, billType, quoteNo, activeSessionId]);
+
+  useEffect(() => {
+    localStorage.setItem("quotation_sessions", JSON.stringify(sessions));
+  }, [sessions]);
+
+  const createNewSession = () => {
+    const newId = `session-${Date.now()}`;
+    const newSession = { id: newId, title: 'New Quote', data: null };
+    setSessions(prev => [...prev, newSession]);
+    setActiveSessionId(newId);
+  };
+
+  const closeSession = (id, e) => {
+    e.stopPropagation();
+    if (sessions.length === 1) {
+      setSessions([{ id: 'default', title: 'New Quote', data: null }]);
+      setActiveSessionId('default');
+      return;
+    }
+    const newSessions = sessions.filter(s => s.id !== id);
+    setSessions(newSessions);
+    if (activeSessionId === id) {
+      setActiveSessionId(newSessions[newSessions.length - 1].id);
+    }
+  };
+
   const componentRef = useRef();
   const handlePrint = useReactToPrint({ contentRef: componentRef });
 
   useEffect(() => {
+    if (location.state?.newSession) {
+      createNewSession();
+      navigate(location.pathname, { replace: true, state: {} });
+      return;
+    }
     const last = localStorage.getItem("lastQuoteNumber") || "100";
     setQuoteNo(`MI/QT/${parseInt(last) + 1}/26-27`);
   }, []);
@@ -55,7 +131,7 @@ export default function QuotationPage() {
     0
   );
 
-  const saveQuotation = () => {
+  const saveQuotation = async () => {
     if (!clientName || items.length === 0)
       return alert("Add client name and at least one item.");
     const currentNum = quoteNo.split("/")[2];
@@ -69,19 +145,20 @@ export default function QuotationPage() {
       date: quoteDate,
       total: subTotal,
       billType,
+      status: "Draft"
     };
-    const existing = JSON.parse(
-      localStorage.getItem("savedQuotations") || "[]"
-    );
-    localStorage.setItem(
-      "savedQuotations",
-      JSON.stringify([newQuote, ...existing])
-    );
-    alert("Quotation Saved Successfully!");
+    try {
+      await fetch('http://localhost:5000/api/quotations', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(newQuote)
+      });
+      alert("Quotation Saved Successfully!");
+    } catch(err) { console.error(err); }
   };
 
   // ── CONVERT TO INVOICE ──────────────────────────────────────────
-  const convertToInvoice = () => {
+  const convertToInvoice = async () => {
     if (!clientName || items.length === 0)
       return alert("Add client name and at least one item before converting.");
     // Save the quote first
@@ -96,25 +173,27 @@ export default function QuotationPage() {
       date: quoteDate,
       total: subTotal,
       billType,
+      status: "Draft"
     };
-    const existing = JSON.parse(
-      localStorage.getItem("savedQuotations") || "[]"
-    );
-    localStorage.setItem(
-      "savedQuotations",
-      JSON.stringify([newQuote, ...existing])
-    );
-    // Navigate to billing with quote data + billType in state
-    navigate("/billing", {
-      state: {
-        convertQuote: {
-          clientName,
-          clientAddress,
-          items,
-          billType,
+    
+    try {
+      await fetch('http://localhost:5000/api/quotations', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(newQuote)
+      });
+      // Navigate to billing with quote data + billType in state
+      navigate("/billing", {
+        state: {
+          convertQuote: {
+            clientName,
+            clientAddress,
+            items,
+            billType,
+          },
         },
-      },
-    });
+      });
+    } catch(err) { console.error(err); }
   };
 
   const clearForm = () => {
@@ -128,6 +207,36 @@ export default function QuotationPage() {
 
   return (
     <div className="bg-gray-200 min-h-screen font-sans text-slate-800 flex flex-col">
+      {/* Sessions Tab Bar */}
+      <div className="bg-slate-800 px-2 pt-2 flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-slate-700">
+        {sessions.map(s => (
+          <div
+            key={s.id}
+            onClick={() => setActiveSessionId(s.id)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
+              activeSessionId === s.id 
+              ? "bg-gray-200 text-slate-800 shadow-[0_-2px_10px_rgba(0,0,0,0.2)]" 
+              : "bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
+            }`}
+          >
+            <FileText size={12} className={activeSessionId === s.id ? "text-amber-600" : "text-slate-500"} />
+            <span className="max-w-[100px] truncate">{s.title}</span>
+            <button 
+              onClick={(e) => closeSession(s.id, e)}
+              className={`p-0.5 rounded-full hover:bg-black/10 transition ${activeSessionId === s.id ? "text-slate-400 hover:text-red-500" : "text-slate-500 hover:text-white"}`}
+            >
+              <X size={10} />
+            </button>
+          </div>
+        ))}
+        <button 
+          onClick={createNewSession}
+          className="p-1.5 text-amber-400 hover:text-amber-300 transition hover:bg-white/5 rounded-full mb-1"
+          title="New Quotation Session"
+        >
+          <Plus size={16} strokeWidth={3} />
+        </button>
+      </div>
       {/* ── TOP INFO BAR ── */}
       <div className="bg-amber-50 p-2 grid grid-cols-12 gap-2 border-b border-amber-200 items-end text-slate-600">
         <div className="col-span-2">

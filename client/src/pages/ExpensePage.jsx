@@ -31,63 +31,7 @@ const OVERHEAD_CATEGORIES = [
   "Miscellaneous",
 ];
 
-const INITIAL_EXPENSES = [
-  {
-    id: 1,
-    expenseType: "Client",
-    client: "Rajesh Gowda",
-    material: "Marine Plywood",
-    qty: "20 Sheets",
-    cost: 45000,
-    category: "",
-    description: "",
-    date: "2026-04-15",
-  },
-  {
-    id: 2,
-    expenseType: "Client",
-    client: "Anita Nair",
-    material: "High Gloss Laminates",
-    qty: "12 Sheets",
-    cost: 18000,
-    category: "",
-    description: "",
-    date: "2026-03-10",
-  },
-  {
-    id: 3,
-    expenseType: "Overhead",
-    client: "",
-    material: "",
-    qty: "",
-    cost: 35000,
-    category: "Office Rent",
-    description: "Monthly office rent – April 2026",
-    date: "2026-04-01",
-  },
-  {
-    id: 4,
-    expenseType: "Overhead",
-    client: "",
-    material: "",
-    qty: "",
-    cost: 4800,
-    category: "Electricity",
-    description: "Electricity bill April 2026",
-    date: "2026-04-05",
-  },
-  {
-    id: 5,
-    expenseType: "Client",
-    client: "Tech Corp",
-    material: "Acoustic Panels",
-    qty: "30 units",
-    cost: 95000,
-    category: "",
-    description: "",
-    date: "2025-11-05",
-  },
-];
+const INITIAL_EXPENSES = [];
 
 export default function ExpensePage() {
   const [uiMode, setUiMode] = useState("Dashboard");
@@ -124,23 +68,44 @@ export default function ExpensePage() {
 
   const removeBulkItem = (id) => setBulkItems(bulkItems.filter((i) => i.id !== id));
 
-  const saveBulkExpenses = () => {
+  const [activeTab, setActiveTab] = useState("All");
+  const [viewType, setViewType] = useState("Monthly");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [expenseHistory, setExpenseHistory] = useState([]);
+
+  const loadExpenses = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/finance/expenses');
+      const data = await res.json();
+      setExpenseHistory(data);
+    } catch(err) { console.error(err); }
+  };
+
+  React.useEffect(() => {
+    loadExpenses();
+  }, []);
+
+  const saveBulkExpenses = async () => {
     if (bulkItems.length === 0) return alert("No items to save.");
     
     // Some basic validation
     const invalidClient = bulkItems.find(i => i.expenseType === "Client" && !i.client);
     if (invalidClient) return alert("Please make sure all client expenses have a Client Name specified before adding to the list.");
 
-    setExpenseHistory([...bulkItems, ...expenseHistory]);
-    setBulkItems([]);
-    alert("Bulk expenses saved successfully!");
+    try {
+      for (const item of bulkItems) {
+        await fetch('http://localhost:5000/api/finance/expenses', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({...item, id: `EXP-${Date.now()}-${Math.floor(Math.random()*1000)}`})
+        });
+      }
+      setBulkItems([]);
+      loadExpenses();
+      alert("Bulk expenses saved successfully!");
+    } catch(err) { console.error(err); }
   };
-
-  const [activeTab, setActiveTab] = useState("All");
-  const [viewType, setViewType] = useState("Monthly");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [expenseHistory, setExpenseHistory] = useState(INITIAL_EXPENSES);
 
   const [newExpense, setNewExpense] = useState({
     expenseType: "Client",
@@ -153,25 +118,32 @@ export default function ExpensePage() {
     date: new Date().toISOString().split("T")[0],
   });
 
-  const handleAddExpense = (e) => {
+  const handleAddExpense = async (e) => {
     e.preventDefault();
     const entry = {
       ...newExpense,
-      id: Date.now(),
+      id: `EXP-${Date.now()}`,
       cost: parseFloat(newExpense.cost),
     };
-    setExpenseHistory([entry, ...expenseHistory]);
-    setIsModalOpen(false);
-    setNewExpense({
-      expenseType: "Client",
-      client: "",
-      material: "",
-      qty: "",
-      cost: "",
-      category: OVERHEAD_CATEGORIES[0],
-      description: "",
-      date: new Date().toISOString().split("T")[0],
-    });
+    try {
+      await fetch('http://localhost:5000/api/finance/expenses', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(entry)
+      });
+      loadExpenses();
+      setIsModalOpen(false);
+      setNewExpense({
+        expenseType: "Client",
+        client: "",
+        material: "",
+        qty: "",
+        cost: "",
+        category: OVERHEAD_CATEGORIES[0],
+        description: "",
+        date: new Date().toISOString().split("T")[0],
+      });
+    } catch(err) { console.error(err); }
   };
 
   const timeFiltered = expenseHistory.filter((item) => {

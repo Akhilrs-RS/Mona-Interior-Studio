@@ -28,75 +28,114 @@ const CRMPage = () => {
   const [activeTab, setActiveTab] = useState("deals");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // 1. EXTENDED CONTACTS STATE
-  const [contacts, setContacts] = useState([
-    { id: "c1", name: "Rajesh Gowda", project: "Villa Interior", phone: "9876543210", email: "rajesh@example.com", address: "Kochi, Kerala", status: "Hot", source: "Instagram", tags: ["Residential", "Premium"] },
-    { id: "c2", name: "Anita Nair", project: "Kitchen Remodel", phone: "9845012345", email: "anita.n@gmail.com", address: "Trivandrum, Kerala", status: "Warm", source: "Referral", tags: ["Residential", "Kitchen"] },
-    { id: "c3", name: "Tech Corp", project: "Enterprise Software", phone: "9900112233", email: "facilities@techcorp.in", address: "Bangalore, KA", status: "Cold", source: "Website", tags: ["Commercial", "Office"] },
-    { id: "c4", name: "Elena Cruz", project: "Boutique Cafe", phone: "9123456780", email: "elena.cafe@mail.com", address: "Goa", status: "Hot", source: "Direct Walk-in", tags: ["Commercial", "Hospitality"] },
-  ]);
-
-  // 2. EXTENDED KANBAN PIPELINE (Removed Probability, Kept Tasks structure if needed but hidden from UI)
+  const [contacts, setContacts] = useState([]);
   const [pipeline, setPipeline] = useState({
     LEAD: { id: "LEAD", title: "LEADS", deals: [] },
-    CONTACTED: {
-      id: "CONTACTED", title: "CONTACTED",
-      deals: [{ id: "deal-1", contactId: "c1", title: "Villa Design Quote", value: 450000, closeDate: "2024-06-15" }],
-    },
-    PROPOSAL: {
-      id: "PROPOSAL", title: "PROPOSALS",
-      deals: [{ id: "deal-2", contactId: "c2", title: "Modular Kitchen Setup", value: 850000, closeDate: "2024-05-20" }],
-    },
-    NEGOTIATION: {
-      id: "NEGOTIATION", title: "NEGOTIATING",
-      deals: [{ id: "deal-3", contactId: "c3", title: "Full Office Interior", value: 1500000, closeDate: "2024-05-30" }],
-    },
-    WON: { id: "WON", title: "CLOSED WON", deals: [{ id: "deal-4", contactId: "c4", title: "Cafe Renovation", value: 1200000, closeDate: "2024-04-10" }] },
+    CONTACTED: { id: "CONTACTED", title: "CONTACTED", deals: [] },
+    PROPOSAL: { id: "PROPOSAL", title: "PROPOSALS", deals: [] },
+    NEGOTIATION: { id: "NEGOTIATION", title: "NEGOTIATING", deals: [] },
+    WON: { id: "WON", title: "CLOSED WON", deals: [] },
     LOST: { id: "LOST", title: "CLOSED LOST", deals: [] },
   });
+  const [activities, setActivities] = useState([]);
 
-  // 3. ACTIVITIES STATE
-  const [activities, setActivities] = useState([
-    { id: 1, type: "Payment Reminder", date: "2024-05-01", client: "c1", status: "Pending" },
-    { id: 2, type: "Client Field Visit", date: "2024-05-03", client: "c2", status: "Scheduled" },
-    { id: 3, type: "Send Revised Quote", date: "2024-05-05", client: "c3", status: "Pending" },
-  ]);
-
-  // Modal states
   const [editContact, setEditContact] = useState(null);
   const [editDeal, setEditDeal] = useState(null);
   const [editActivity, setEditActivity] = useState(null);
   const [feedback, setFeedback] = useState("");
 
-  const showFeedback = (msg) => {
-    setFeedback(msg);
-    setTimeout(() => setFeedback(""), 2500);
+  const loadData = async () => {
+    try {
+      const [cRes, dRes, aRes] = await Promise.all([
+        fetch('http://localhost:5000/api/crm').then(res => res.json()),
+        fetch('http://localhost:5000/api/crm/deals/all').then(res => res.json()),
+        fetch('http://localhost:5000/api/crm/activities/all').then(res => res.json()),
+      ]);
+      setContacts(cRes);
+      
+      const newPipe = {
+        LEAD: { id: "LEAD", title: "LEADS", deals: [] },
+        CONTACTED: { id: "CONTACTED", title: "CONTACTED", deals: [] },
+        PROPOSAL: { id: "PROPOSAL", title: "PROPOSALS", deals: [] },
+        NEGOTIATION: { id: "NEGOTIATION", title: "NEGOTIATING", deals: [] },
+        WON: { id: "WON", title: "CLOSED WON", deals: [] },
+        LOST: { id: "LOST", title: "CLOSED LOST", deals: [] },
+      };
+      dRes.forEach(d => {
+        const stage = d.stage || "LEAD";
+        if(newPipe[stage]) {
+          newPipe[stage].deals.push({ id: d.id, contactId: d.contact_id, title: d.title, value: Number(d.value), closeDate: d.close_date ? d.close_date.split('T')[0] : '' });
+        }
+      });
+      setPipeline(newPipe);
+      setActivities(aRes.map(a => ({ id: a.id, type: a.type, date: a.date ? a.date.split('T')[0] : '', client: a.client, status: a.status })));
+    } catch(err) {
+      console.error(err);
+    }
   };
 
-  const handleContactSave = (updated) => {
-    if (!updated.id) { updated.id = `c${Date.now()}`; setContacts((prev) => [updated, ...prev]); } 
-    else { setContacts((prev) => prev.map((c) => (c.id === updated.id ? updated : c))); }
-    setEditContact(null); showFeedback("Client profile saved successfully");
+  React.useEffect(() => { loadData(); }, []);
+
+  const showFeedback = (msg) => { setFeedback(msg); setTimeout(() => setFeedback(""), 2500); };
+
+  const handleContactSave = async (updated) => {
+    try {
+      if (!updated.id) {
+        updated.id = `c${Date.now()}`;
+        updated.date = new Date().toISOString().split('T')[0];
+        await fetch('http://localhost:5000/api/crm', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updated) });
+      } else {
+        await fetch(`http://localhost:5000/api/crm/${updated.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updated) });
+      }
+      loadData();
+      setEditContact(null); showFeedback("Client profile saved successfully");
+    } catch(err) { showFeedback("Error saving"); }
   };
 
-  const handleDealSave = (updated) => {
-    setPipeline((prev) => {
-      const newPipe = { ...prev };
+  const handleDealSave = async (updated) => {
+    try {
       if (!updated.id) {
         updated.id = `deal-${Date.now()}`;
-        newPipe.LEAD.deals.push(updated);
+        updated.stage = "LEAD";
+        await fetch('http://localhost:5000/api/crm/deals', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({...updated, closeDate: updated.closeDate}) });
       } else {
-        for (const col of Object.values(newPipe)) { col.deals = col.deals.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)); }
+        // Find existing stage to keep it
+        let stage = "LEAD";
+        for (const [key, col] of Object.entries(pipeline)) {
+          if(col.deals.some(d => d.id === updated.id)) stage = key;
+        }
+        await fetch(`http://localhost:5000/api/crm/deals/${updated.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({...updated, closeDate: updated.closeDate, stage}) });
       }
-      return newPipe;
-    });
-    setEditDeal(null); showFeedback("Project deal saved successfully");
+      loadData();
+      setEditDeal(null); showFeedback("Project deal saved successfully");
+    } catch(err) { showFeedback("Error saving"); }
   };
 
-  const handleActivitySave = (updated) => {
-    if (!updated.id) { updated.id = Date.now(); setActivities((prev) => [...prev, updated]); } 
-    else { setActivities((prev) => prev.map((a) => (a.id === updated.id ? updated : a))); }
-    setEditActivity(null); showFeedback("Activity tracked successfully");
+  const handleActivitySave = async (updated) => {
+    try {
+      if (!updated.id) {
+        await fetch('http://localhost:5000/api/crm/activities', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updated) });
+      } else {
+        await fetch(`http://localhost:5000/api/crm/activities/${updated.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(updated) });
+      }
+      loadData();
+      setEditActivity(null); showFeedback("Activity tracked successfully");
+    } catch(err) { showFeedback("Error saving"); }
+  };
+
+  const completeActivity = async (act) => {
+    try {
+      await fetch(`http://localhost:5000/api/crm/activities/${act.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({...act, status: 'Completed'}) });
+      loadData(); showFeedback("Activity marked as completed");
+    } catch(err) { showFeedback("Error completing activity"); }
+  };
+
+  const deleteActivity = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this activity?")) return;
+    try {
+      await fetch(`http://localhost:5000/api/crm/activities/${id}`, { method: 'DELETE' });
+      loadData(); showFeedback("Activity deleted");
+    } catch(err) { showFeedback("Error deleting activity"); }
   };
 
   // --- ADVANCED METRICS (Removed Probability Weighted) ---
@@ -131,7 +170,7 @@ const CRMPage = () => {
     return clientName.toLowerCase().includes(searchTerm.toLowerCase()) || a.type.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  const onDragEnd = (result) => {
+  const onDragEnd = async (result) => {
     const { source, destination } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
@@ -147,6 +186,17 @@ const CRMPage = () => {
     } else {
       destDeals.splice(destination.index, 0, movedDeal);
       setPipeline({ ...pipeline, [source.droppableId]: { ...sourceCol, deals: sourceDeals }, [destination.droppableId]: { ...destCol, deals: destDeals } });
+      
+      // Update in DB
+      try {
+        await fetch(`http://localhost:5000/api/crm/deals/${movedDeal.id}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({...movedDeal, stage: destination.droppableId})
+        });
+      } catch (e) {
+        console.error("Failed to update deal stage", e);
+      }
     }
   };
 
@@ -348,23 +398,33 @@ const CRMPage = () => {
               <div className="space-y-3">
                 {filteredActivities.sort((a,b) => new Date(a.date) - new Date(b.date)).map((act) => {
                   const contact = contacts.find(c => c.id === act.client);
+                  const isOverdue = new Date(act.date) < new Date() && act.status !== 'Completed';
+                  const displayStatus = isOverdue ? 'Overdue' : act.status;
+                  const actDate = new Date(act.date);
                   return (
                     <div key={act.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border border-stone-200 rounded-xl shadow-sm hover:shadow-md transition-all">
                       <div className="flex gap-4 items-center">
                         <div className="bg-stone-50 border border-stone-200 px-3 py-2 rounded-lg text-center min-w-[60px]">
-                          <p className="text-[9px] font-black text-stone-500 uppercase tracking-widest">{new Date(act.date).toLocaleString('default', { month: 'short' })}</p>
-                          <p className="text-lg font-black text-stone-900">{act.date.split("-")[2]}</p>
+                          <p className="text-[9px] font-black text-stone-500 uppercase tracking-widest">{actDate.toLocaleString('default', { month: 'short' })}</p>
+                          <p className="text-lg font-black text-stone-900">{actDate.getDate()}</p>
                         </div>
                         <div>
                           <p className="font-black text-stone-900 text-sm mb-0.5">{act.type}</p>
-                          <p className="text-xs font-bold text-stone-500 flex items-center gap-1.5"><User size={12} /> {contact ? contact.name : "Unknown Client"}</p>
+                          <p className="text-xs font-bold text-stone-500 flex items-center gap-1.5"><User size={12} /> {contact ? contact.name : "Unknown Client"} <span className="ml-2 flex items-center gap-1 text-stone-400"><Clock size={12}/> {actDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></p>
                         </div>
                       </div>
                       <div className="mt-3 sm:mt-0 flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-0 border-stone-100 pt-3 sm:pt-0">
-                        <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 border rounded-md ${act.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : act.status === 'Scheduled' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
-                          {act.status === 'Completed' ? <CheckCircle size={12} /> : act.status === 'Pending' ? <Clock size={12} /> : <Calendar size={12} />}{act.status}
+                        <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 border rounded-md ${displayStatus === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : displayStatus === 'Overdue' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                          {displayStatus === 'Completed' ? <CheckCircle size={12} /> : displayStatus === 'Pending' ? <Clock size={12} /> : <Calendar size={12} />}{displayStatus}
                         </span>
-                        <button className="text-stone-500 hover:text-stone-900 font-bold px-3 py-1.5 rounded-lg bg-stone-50 hover:bg-stone-100 transition-colors border border-stone-200 text-xs" onClick={() => setEditActivity(act)}>Edit</button>
+                        
+                        <div className="flex items-center gap-1.5">
+                           {act.status !== 'Completed' && (
+                             <button title="Mark Completed" className="text-emerald-600 hover:text-emerald-700 font-bold px-2 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-200 text-xs flex items-center gap-1" onClick={() => completeActivity(act)}><CheckCircle size={14}/></button>
+                           )}
+                           <button className="text-stone-500 hover:text-stone-900 font-bold px-3 py-1.5 rounded-lg bg-stone-50 hover:bg-stone-100 transition-colors border border-stone-200 text-xs" onClick={() => setEditActivity(act)}>Edit</button>
+                           <button title="Delete Activity" className="text-red-500 hover:text-red-700 font-bold px-2 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors border border-red-200 text-xs flex items-center gap-1" onClick={() => deleteActivity(act.id)}><Trash size={14}/></button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -494,15 +554,7 @@ function EditContactForm({ contact, onSave, onCancel }) {
           <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Physical Address</label>
           <input className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} required />
         </div>
-        <div>
-          <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Lead Status</label>
-          <select className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-            <option value="Hot">🔥 Hot Lead</option>
-            <option value="Warm">☀️ Warm Lead</option>
-            <option value="Cold">❄️ Cold Lead</option>
-          </select>
-        </div>
-        <div>
+        <div className="md:col-span-2">
           {/* Replaced fixed select with input + datalist so ANY lead source can be entered */}
           <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Lead Source</label>
           <input list="lead-sources" placeholder="e.g. Instagram" className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.source} onChange={e => setForm({ ...form, source: e.target.value })} />
@@ -512,16 +564,6 @@ function EditContactForm({ contact, onSave, onCancel }) {
             <option value="Referral" />
             <option value="Direct Walk-in" />
           </datalist>
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Project Tags</label>
-          <div className="flex gap-2 mb-2 flex-wrap">
-            {form.tags.map(t => <span key={t} className="bg-stone-200 text-stone-700 text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1">{t} <button type="button" onClick={() => setForm({...form, tags: form.tags.filter(tag => tag !== t)})} className="hover:text-red-500">&times;</button></span>)}
-          </div>
-          <div className="flex gap-2">
-            <input className="flex-1 bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-stone-900" placeholder="Add tag (e.g. Commercial)..." value={tagInput} onChange={e=>setTagInput(e.target.value)} onKeyDown={e => {if(e.key==='Enter'){e.preventDefault(); addTag();}}} />
-            <button type="button" onClick={addTag} className="bg-stone-200 px-4 rounded-xl font-bold text-sm hover:bg-stone-300">Add</button>
-          </div>
         </div>
       </div>
 
@@ -534,10 +576,29 @@ function EditContactForm({ contact, onSave, onCancel }) {
 }
 
 function EditDealForm({ deal, contacts, onSave, onCancel }) {
-  const [form, setForm] = useState(deal || { title: '', value: 0, contactId: '', closeDate: new Date().toISOString().split('T')[0] });
+  const initialContact = contacts.find(c => c.id == deal?.contactId);
+  const [form, setForm] = useState({ 
+    title: deal?.title || '', 
+    value: deal?.value || 0, 
+    contactName: initialContact?.name || '', 
+    closeDate: deal?.closeDate || new Date().toISOString().split('T')[0],
+    id: deal?.id
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const existing = contacts.find(c => c.name.toLowerCase() === form.contactName.trim().toLowerCase());
+    onSave({
+      id: form.id,
+      title: form.title,
+      value: form.value,
+      closeDate: form.closeDate,
+      contactId: existing ? existing.id.toString() : form.contactName.trim()
+    });
+  };
 
   return (
-    <form onSubmit={e => { e.preventDefault(); onSave(form); }} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="font-black text-3xl mb-1 text-stone-900 tracking-tight">Project Deal</h2>
       <p className="text-stone-500 font-medium text-sm mb-6 pb-4 border-b border-stone-200">Track and update the estimated budget and assign to a client.</p>
       
@@ -547,23 +608,23 @@ function EditDealForm({ deal, contacts, onSave, onCancel }) {
           <input className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required />
         </div>
         <div>
-          <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Client</label>
-          <select className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.contactId} onChange={e => setForm({ ...form, contactId: e.target.value })} required>
-            <option value="" disabled>Select client</option>
-            {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Client (Optional)</label>
+          <input 
+            list="client-list"
+            placeholder="Type new or select existing..."
+            className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" 
+            value={form.contactName} 
+            onChange={e => setForm({ ...form, contactName: e.target.value })} 
+          />
+          <datalist id="client-list">
+            {contacts.map(c => <option key={c.id} value={c.name} />)}
+          </datalist>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Est. Value (₹)</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 font-bold">₹</span>
-              <input className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 pl-9 text-sm text-stone-900 font-black focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.value} onChange={e => setForm({ ...form, value: Number(e.target.value) })} type="number" required min="0" />
-            </div>
-          </div>
-          <div>
-            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Exp. Close Date</label>
-            <input className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.closeDate} onChange={e => setForm({ ...form, closeDate: e.target.value })} type="date" required />
+        <div>
+          <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Est. Value (₹)</label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 font-bold">₹</span>
+            <input className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 pl-9 text-sm text-stone-900 font-black focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.value} onChange={e => setForm({ ...form, value: Number(e.target.value) })} type="number" required min="0" />
           </div>
         </div>
       </div>
@@ -577,9 +638,36 @@ function EditDealForm({ deal, contacts, onSave, onCancel }) {
 }
 
 function EditActivityForm({ activity, contacts, onSave, onCancel }) {
-  const [form, setForm] = useState(activity || { type: '', date: '', client: '', status: 'Pending' });
+  // We manage date and time separately in the form state, but combine them on save.
+  const defaultDateStr = activity?.date || new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  const initialDate = defaultDateStr.split('T')[0];
+  const initialTime = defaultDateStr.split('T')[1] || '12:00';
+  const initialContact = contacts.find(c => c.id == activity?.client);
+
+  const [form, setForm] = useState({ 
+    id: activity?.id,
+    type: activity?.type || '', 
+    datePart: initialDate,
+    timePart: initialTime,
+    contactName: initialContact?.name || '', 
+    status: activity?.status || 'Pending' 
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const existing = contacts.find(c => c.name.toLowerCase() === form.contactName.trim().toLowerCase());
+    
+    onSave({
+      id: form.id,
+      type: form.type,
+      date: `${form.datePart}T${form.timePart}`,
+      client: existing ? existing.id.toString() : form.contactName.trim(),
+      status: form.status || 'Pending'
+    });
+  };
+
   return (
-    <form onSubmit={e => { e.preventDefault(); onSave(form); }} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <h2 className="font-black text-3xl mb-1 text-stone-900 tracking-tight">Schedule Activity</h2>
       <p className="text-stone-500 font-medium text-sm mb-6 pb-4 border-b border-stone-200">Plan your meetings, site visits, and calls.</p>
       
@@ -591,23 +679,25 @@ function EditActivityForm({ activity, contacts, onSave, onCancel }) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Date</label>
-            <input className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} type="date" required />
+            <input className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.datePart} onChange={e => setForm({ ...form, datePart: e.target.value })} type="date" required />
           </div>
           <div>
-            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Status</label>
-            <select className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-              <option value="Pending">⏳ Pending</option>
-              <option value="Scheduled">📅 Scheduled</option>
-              <option value="Completed">✅ Completed</option>
-            </select>
+            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Time</label>
+            <input className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.timePart} onChange={e => setForm({ ...form, timePart: e.target.value })} type="time" required />
           </div>
         </div>
         <div>
-          <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Client</label>
-          <select className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" value={form.client} onChange={e => setForm({ ...form, client: e.target.value })} required>
-            <option value="" disabled>Select a client</option>
-            {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1.5 block">Client (Optional)</label>
+          <input 
+            list="activity-client-list"
+            placeholder="Type new or select existing..."
+            className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-sm text-stone-900 font-bold focus:ring-2 focus:ring-stone-900 outline-none transition-all" 
+            value={form.contactName} 
+            onChange={e => setForm({ ...form, contactName: e.target.value })} 
+          />
+          <datalist id="activity-client-list">
+            {contacts.map(c => <option key={c.id} value={c.name} />)}
+          </datalist>
         </div>
       </div>
 

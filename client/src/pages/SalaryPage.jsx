@@ -33,21 +33,33 @@ export default function SalaryPage() {
 
   // Load Data
   useEffect(() => {
-    const savedEmps = localStorage.getItem("monaEmployees");
-    if (savedEmps) setEmployees(JSON.parse(savedEmps));
-
-    const savedHist = localStorage.getItem("monaPayrollHistory");
-    if (savedHist) setPayrollHistory(JSON.parse(savedHist));
+    const fetchEmployees = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/employees');
+        const data = await res.json();
+        setEmployees(data);
+      } catch (err) { console.error(err); }
+    };
+    const fetchPayroll = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/finance/payroll');
+        const data = await res.json();
+        setPayrollHistory(data);
+      } catch (err) { console.error(err); }
+    };
+    
+    fetchEmployees();
+    fetchPayroll();
   }, []);
 
-  const saveEmployees = (emps) => {
+  const saveEmployees = async (emps) => {
+    // We do not save all employees locally anymore
     setEmployees(emps);
-    localStorage.setItem("monaEmployees", JSON.stringify(emps));
   };
 
-  const saveHistory = (hist) => {
+  const saveHistory = async (hist) => {
+    // We update local state, API is called in the handlers
     setPayrollHistory(hist);
-    localStorage.setItem("monaPayrollHistory", JSON.stringify(hist));
   };
 
   // Forms
@@ -116,7 +128,7 @@ export default function SalaryPage() {
     }));
   };
 
-  const handleProcessSalary = (e) => {
+  const handleProcessSalary = async (e) => {
     e.preventDefault();
     if (!selectedEmployee) return;
 
@@ -147,36 +159,51 @@ export default function SalaryPage() {
       method: salForm.method,
     };
 
-    saveHistory([entry, ...payrollHistory]);
+    try {
+      await fetch('http://localhost:5000/api/finance/payroll', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(entry)
+      });
+      saveHistory([entry, ...payrollHistory]);
 
-    // Update Employee advance balance
-    const updatedEmps = employees.map(emp => {
-      if (emp.id === selectedEmployee.id) {
-        return { ...emp, advanceBalance: Math.max(0, (emp.advanceBalance || 0) - advanceDed) };
+      // Update Employee advance balance via API
+      if (advanceDed > 0) {
+        const newBalance = Math.max(0, (selectedEmployee.advanceBalance || 0) - advanceDed);
+        await fetch(`http://localhost:5000/api/employees/${selectedEmployee.id}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({...selectedEmployee, advanceBalance: newBalance})
+        });
+        const updatedEmps = employees.map(emp => {
+          if (emp.id === selectedEmployee.id) {
+            return { ...emp, advanceBalance: newBalance };
+          }
+          return emp;
+        });
+        saveEmployees(updatedEmps);
       }
-      return emp;
-    });
-    saveEmployees(updatedEmps);
 
-    // Trigger print
-    const pd = {
-      name: selectedEmployee.name,
-      gender: "Male",
-      paidDays: salForm.paidDays,
-      lopDays: salForm.lopDays,
-      basic: salForm.basic,
-      otHours: salForm.otHours,
-      otRate: salForm.otRate,
-      advance: salForm.advanceDeduction,
-      otherDeductions: salForm.otherDeductions,
-    };
-    setPrintData(pd);
-    setTimeout(() => handlePrint(), 300);
+      // Trigger print
+      const pd = {
+        name: selectedEmployee.name,
+        gender: "Male",
+        paidDays: salForm.paidDays,
+        lopDays: salForm.lopDays,
+        basic: salForm.basic,
+        otHours: salForm.otHours,
+        otRate: salForm.otRate,
+        advance: salForm.advanceDeduction,
+        otherDeductions: salForm.otherDeductions,
+      };
+      setPrintData(pd);
+      setTimeout(() => handlePrint(), 300);
 
-    setSelectedEmployee(null);
+      setSelectedEmployee(null);
+    } catch(err) { console.error(err); }
   };
 
-  const handleGiveAdvance = (e) => {
+  const handleGiveAdvance = async (e) => {
     e.preventDefault();
     if (!selectedEmployee) return;
     
@@ -195,18 +222,31 @@ export default function SalaryPage() {
       method: advForm.method,
     };
 
-    saveHistory([entry, ...payrollHistory]);
+    try {
+      await fetch('http://localhost:5000/api/finance/payroll', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(entry)
+      });
+      saveHistory([entry, ...payrollHistory]);
 
-    // Update Employee advance balance
-    const updatedEmps = employees.map(emp => {
-      if (emp.id === selectedEmployee.id) {
-        return { ...emp, advanceBalance: (emp.advanceBalance || 0) + amt };
-      }
-      return emp;
-    });
-    saveEmployees(updatedEmps);
-    alert(`Advance of ₹${amt} paid to ${selectedEmployee.name}.`);
-    setSelectedEmployee(null);
+      // Update Employee advance balance via API
+      const newBalance = (selectedEmployee.advanceBalance || 0) + amt;
+      await fetch(`http://localhost:5000/api/employees/${selectedEmployee.id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({...selectedEmployee, advanceBalance: newBalance})
+      });
+      const updatedEmps = employees.map(emp => {
+        if (emp.id === selectedEmployee.id) {
+          return { ...emp, advanceBalance: newBalance };
+        }
+        return emp;
+      });
+      saveEmployees(updatedEmps);
+      alert(`Advance of ₹${amt} paid to ${selectedEmployee.name}.`);
+      setSelectedEmployee(null);
+    } catch(err) { console.error(err); }
   };
 
   const salaryHistory = payrollHistory.filter(

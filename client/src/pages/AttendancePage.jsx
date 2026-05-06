@@ -38,28 +38,22 @@ export default function AttendancePage() {
   const [currentRecords, setCurrentRecords] = useState({}); // { empId: { status, overtime } }
   const [isLocked, setIsLocked] = useState(false);
   
-  // --- INITIALIZATION ---
+  const loadData = async () => {
+    try {
+      const empRes = await fetch('http://localhost:5000/api/employees');
+      const empData = await empRes.json();
+      setEmployees(empData);
+
+      const attRes = await fetch('http://localhost:5000/api/attendance');
+      const attData = await attRes.json();
+      setAttendanceData(attData);
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
-    // Load Employees
-    const savedEmployees = localStorage.getItem("monaEmployees");
-    if (savedEmployees) {
-      setEmployees(JSON.parse(savedEmployees));
-    }
-    
-    // Load Attendance Data with Migration
-    const savedAttendance = localStorage.getItem("monaAttendance");
-    if (savedAttendance) {
-      let parsed = JSON.parse(savedAttendance);
-      let migrated = false;
-      for (let date in parsed) {
-        if (!parsed[date].records) {
-          parsed[date] = { isLocked: false, records: parsed[date] };
-          migrated = true;
-        }
-      }
-      setAttendanceData(parsed);
-      if (migrated) localStorage.setItem("monaAttendance", JSON.stringify(parsed));
-    }
+    loadData();
   }, []);
 
   // Sync currentRecords when date or tab changes, or data loads
@@ -93,25 +87,47 @@ export default function AttendancePage() {
   }, []);
 
   // --- ACTIONS ---
-  const saveAttendance = (lock = false) => {
-    const newData = { 
-      ...attendanceData, 
-      [selectedDate]: { isLocked: lock, records: currentRecords } 
+  const saveAttendance = async (lock = false) => {
+    const payload = {
+      date: selectedDate,
+      isLocked: lock,
+      records: currentRecords
     };
-    setAttendanceData(newData);
-    setIsLocked(lock);
-    localStorage.setItem("monaAttendance", JSON.stringify(newData));
-    alert(lock ? "Attendance Locked!" : "Attendance Saved!");
+    try {
+      await fetch('http://localhost:5000/api/attendance', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const newData = { 
+        ...attendanceData, 
+        [selectedDate]: { isLocked: lock, records: currentRecords } 
+      };
+      setAttendanceData(newData);
+      setIsLocked(lock);
+      alert(lock ? "Attendance Locked!" : "Attendance Saved!");
+    } catch (e) { console.error(e); }
   };
 
-  const handleUnlock = () => {
-    const newData = { 
-      ...attendanceData, 
-      [selectedDate]: { ...attendanceData[selectedDate], isLocked: false } 
+  const handleUnlock = async () => {
+    const payload = {
+      date: selectedDate,
+      isLocked: false,
+      records: currentRecords
     };
-    setAttendanceData(newData);
-    setIsLocked(false);
-    localStorage.setItem("monaAttendance", JSON.stringify(newData));
+    try {
+      await fetch('http://localhost:5000/api/attendance', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const newData = { 
+        ...attendanceData, 
+        [selectedDate]: { ...attendanceData[selectedDate], isLocked: false } 
+      };
+      setAttendanceData(newData);
+      setIsLocked(false);
+    } catch (e) { console.error(e); }
   };
 
   const handleStatusChange = (empId, status) => {

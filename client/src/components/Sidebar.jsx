@@ -16,6 +16,7 @@ import {
   CheckSquare,
   FileStack,
   IndianRupee,
+  Plus,
 } from "lucide-react";
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
@@ -32,10 +33,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const menuItems = [
     { path: "/", name: "Dashboard", icon: <LayoutDashboard size={20} /> },
     { path: "/crm", name: "CRM (Customers)", icon: <Users size={20} /> },
-    { path: "/quotations", name: "Quotations", icon: <ClipboardList size={20} /> },
+    { path: "/quotations", name: "Quotations", icon: <ClipboardList size={20} />, canAdd: true },
 
     { type: "header", name: "FINANCE" },
-    { path: "/billing", name: "Billing", icon: <FileText size={20} /> },
+    { path: "/billing", name: "Billing", icon: <FileText size={20} />, canAdd: true },
     { path: "/invoices", name: "Invoices", icon: <FileStack size={20} /> },
     { path: "/expenses", name: "Expenses", icon: <Receipt size={20} /> },
     { path: "/accounts", name: "Accounts", icon: <Landmark size={20} /> },
@@ -96,7 +97,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
           const isActive = location.pathname === item.path;
           return (
-            <li key={item.path}>
+            <li key={item.path} className="relative group/nav-item">
               <Link
                 to={item.path}
                 title={!isOpen ? item.name : ""}
@@ -115,6 +116,16 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   </span>
                 )}
               </Link>
+              {item.canAdd && isOpen && (
+                <Link
+                  to={item.path}
+                  state={{ newSession: true }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/20 rounded-lg opacity-0 group-hover/nav-item:opacity-100 transition-all text-white/70 hover:text-white"
+                  title={`Start New ${item.name}`}
+                >
+                  <Plus size={14} strokeWidth={3} />
+                </Link>
+              )}
             </li>
           );
         })}

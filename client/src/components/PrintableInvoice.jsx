@@ -41,8 +41,12 @@ const PrintableInvoice = forwardRef(({ data, docType }, ref) => {
             <th className="p-2 border w-16 text-center">Area</th>
             <th className="p-2 border w-20 text-right">Price</th>
             <th className="p-2 border w-20 text-right">Taxable</th>
-            <th className="p-2 border w-10 text-center">GST%</th>
-            <th className="p-2 border w-16 text-right">GST ₹</th>
+            {safeData.totalGst > 0 && (
+              <>
+                <th className="p-2 border w-10 text-center">GST%</th>
+                <th className="p-2 border w-16 text-right">GST ₹</th>
+              </>
+            )}
             <th className="p-2 border w-24 text-right">Amount (₹)</th>
           </tr>
         </thead>
@@ -55,8 +59,12 @@ const PrintableInvoice = forwardRef(({ data, docType }, ref) => {
               <td className="p-2 border text-center">{item.area}</td>
               <td className="p-2 border text-right">{parseFloat(item.price).toFixed(2)}</td>
               <td className="p-2 border text-right">{item.taxableAmount.toFixed(2)}</td>
-              <td className="p-2 border text-center text-blue-600 font-bold">{item.gstPerc}%</td>
-              <td className="p-2 border text-right font-medium">{item.gstAmount.toFixed(2)}</td>
+              {safeData.totalGst > 0 && (
+                <>
+                  <td className="p-2 border text-center text-blue-600 font-bold">{item.gstPerc}%</td>
+                  <td className="p-2 border text-right font-medium">{item.gstAmount.toFixed(2)}</td>
+                </>
+              )}
               <td className="p-2 border text-right font-bold">
                 {item.amount.toFixed(2)}
               </td>
@@ -64,7 +72,7 @@ const PrintableInvoice = forwardRef(({ data, docType }, ref) => {
           ))}
           {items.length === 0 && (
             <tr>
-              <td colSpan="9" className="p-10 text-center text-gray-400 italic">No work details listed</td>
+              <td colSpan={safeData.totalGst > 0 ? "9" : "7"} className="p-10 text-center text-gray-400 italic">No work details listed</td>
             </tr>
           )}
         </tbody>
@@ -73,17 +81,21 @@ const PrintableInvoice = forwardRef(({ data, docType }, ref) => {
       {/* Totals Section */}
       <div className="flex justify-between items-start">
         <div className="text-[10px] text-gray-500 max-w-[300px]">
-          <p className="font-bold uppercase mb-1">GST Summary:</p>
-          <div className="grid grid-cols-2 gap-x-4 border border-gray-100 p-2 rounded">
-            <span>Total Taxable:</span> <span>₹{(safeData.subTotal || 0).toFixed(2)}</span>
-            <span>Total GST:</span> <span>₹{(safeData.totalGst || 0).toFixed(2)}</span>
-            <div className="col-span-2 border-t border-gray-100 my-1"></div>
-            <span>CGST (9%):</span> <span>₹{((safeData.totalGst || 0) / 2).toFixed(2)}</span>
-            <span>SGST (9%):</span> <span>₹{((safeData.totalGst || 0) / 2).toFixed(2)}</span>
-          </div>
+          {safeData.totalGst > 0 && (
+            <>
+              <p className="font-bold uppercase mb-1">GST Summary:</p>
+              <div className="grid grid-cols-2 gap-x-4 border border-gray-100 p-2 rounded">
+                <span>Total Taxable:</span> <span>₹{(safeData.subTotal || 0).toFixed(2)}</span>
+                <span>Total GST:</span> <span>₹{(safeData.totalGst || 0).toFixed(2)}</span>
+                <div className="col-span-2 border-t border-gray-100 my-1"></div>
+                <span>CGST (9%):</span> <span>₹{((safeData.totalGst || 0) / 2).toFixed(2)}</span>
+                <span>SGST (9%):</span> <span>₹{((safeData.totalGst || 0) / 2).toFixed(2)}</span>
+              </div>
+            </>
+          )}
           <div className="mt-4">
             <p className="font-bold uppercase mb-1">Terms & Conditions:</p>
-            <p>1. This is a GST compliant service invoice.</p>
+            <p>1. {safeData.totalGst > 0 ? "This is a GST compliant service invoice." : "Non-GST service bill."}</p>
             <p>2. Payment due as per the agreed schedule.</p>
             <p>3. Subject to local jurisdiction.</p>
           </div>

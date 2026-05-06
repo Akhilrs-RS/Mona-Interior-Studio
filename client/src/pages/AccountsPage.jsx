@@ -32,84 +32,7 @@ function getCategoryStyle(cat) {
   return CATEGORY_COLORS[cat] || CATEGORY_COLORS["Other"];
 }
 
-function buildTransactions() {
-  const txns = [];
-
-  // From Invoices (Credits)
-  try {
-    const invoices = JSON.parse(localStorage.getItem("savedInvoices") || "[]");
-    invoices.forEach((inv) => {
-      if ((inv.advanceAmount || 0) > 0) {
-        txns.push({
-          id: `INV-ADV-${inv.invoiceNo}`,
-          date: inv.invoiceDate?.split("/").reverse().join("-") || "2026-04-01",
-          description: `Advance — ${inv.invoiceNo} (${inv.clientName})`,
-          type: "Credit",
-          category: "Project Income",
-          amount: parseFloat(inv.advanceAmount),
-        });
-      }
-      if ((inv.receivedAmount || 0) > 0) {
-        txns.push({
-          id: `INV-REC-${inv.invoiceNo}`,
-          date: inv.invoiceDate?.split("/").reverse().join("-") || "2026-04-01",
-          description: `Payment — ${inv.invoiceNo} (${inv.clientName})`,
-          type: "Credit",
-          category: "Project Income",
-          amount: parseFloat(inv.receivedAmount),
-        });
-      }
-    });
-  } catch (_) {}
-
-  // From Expenses (Debits)
-  try {
-    const expenses = JSON.parse(localStorage.getItem("expenses") || "[]");
-    expenses.forEach((exp) => {
-      txns.push({
-        id: `EXP-${exp.id}`,
-        date: exp.date,
-        description:
-          exp.expenseType === "Client"
-            ? `Material: ${exp.material} — ${exp.client}`
-            : `${exp.category}: ${exp.description}`,
-        type: "Debit",
-        category: exp.expenseType === "Overhead" ? "Overhead" : "Material Purchase",
-        amount: parseFloat(exp.cost),
-      });
-    });
-  } catch (_) {}
-
-  // From Payroll (Debits)
-  try {
-    const payrolls = JSON.parse(localStorage.getItem("processedPayrolls") || "[]");
-    payrolls.forEach((p) => {
-      txns.push({
-        id: `PAY-${p.id}`,
-        date: p.paidOn,
-        description: `Salary — ${p.employeeName} (${p.month} ${p.year})`,
-        type: "Debit",
-        category: "Employee Payroll",
-        amount: parseFloat(p.netPay),
-      });
-    });
-  } catch (_) {}
-
-  // Fallback seed data if everything is empty
-  if (txns.length === 0) {
-    return [
-      { id: "TXN-001", date: "2026-04-28", description: "Invoice MI/SRV/1001/26-27 — Rajesh Gowda (Advance)", type: "Credit", category: "Project Income", amount: 20000 },
-      { id: "TXN-002", date: "2026-04-28", description: "Invoice MI/SRV/1002/26-27 — Anita Nair (Full Payment)", type: "Credit", category: "Project Income", amount: 47200 },
-      { id: "TXN-003", date: "2026-04-30", description: "Salary — Rahul Kumar (April 2026)", type: "Debit", category: "Employee Payroll", amount: 42000 },
-      { id: "TXN-004", date: "2026-04-30", description: "Salary — Meena R. (April 2026)", type: "Debit", category: "Employee Payroll", amount: 38000 },
-      { id: "TXN-005", date: "2026-04-15", description: "Material: Marine Plywood — Rajesh Gowda", type: "Debit", category: "Material Purchase", amount: 45000 },
-      { id: "TXN-006", date: "2026-04-01", description: "Office Rent: April 2026 office rent payment", type: "Debit", category: "Overhead", amount: 35000 },
-      { id: "TXN-007", date: "2026-04-05", description: "Electricity: Electricity bill April 2026", type: "Debit", category: "Overhead", amount: 4800 },
-    ];
-  }
-
-  return txns.sort((a, b) => new Date(b.date) - new Date(a.date));
-}
+// We fetch transactions directly from the backend ledger now
 
 export default function AccountsPage() {
   const [transactions, setTransactions] = useState([]);
@@ -120,7 +43,22 @@ export default function AccountsPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    setTransactions(buildTransactions());
+    const loadLedger = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/finance/accounts');
+        const data = await res.json();
+        // Backend returns: id, date, description, type, category, amount
+        // Normalize date and amount
+        const txns = data.map(d => ({
+          ...d,
+          amount: parseFloat(d.amount),
+          date: new Date(d.date).toISOString().split('T')[0]
+        }));
+        setTransactions(txns);
+      } catch (err) { console.error(err); }
+    };
+    loadLedger();
+
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);

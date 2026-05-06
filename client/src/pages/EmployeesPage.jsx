@@ -40,73 +40,61 @@ const EmployeesPage = () => {
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem("monaEmployees");
-    if (saved) {
-      setEmployees(JSON.parse(saved));
-    } else {
-      // Mock initial data
-      const initial = [
-        {
-          id: 1,
-          workerId: "MONA-2026-001",
-          name: "Rahul Kumar",
-          role: "LEAD DESIGNER",
-          status: "Active",
-          phone: "9876543210",
-          email: "rahul@mona.com",
-          address: "Kochi, Kerala",
-          salary: "45000",
-          salaryType: "Monthly",
-          bankDetails: "SBI - 1234567890",
-          govId: "AADHAR-1234",
-          payments: [
-            { id: 1, date: "2026-04-01", amount: "45000", status: "Paid", method: "Bank Transfer" }
-          ],
-          attendance: [],
-          advanceBalance: 0,
-        }
-      ];
-      setEmployees(initial);
-      localStorage.setItem("monaEmployees", JSON.stringify(initial));
-    }
+    fetch('http://localhost:5000/api/employees')
+      .then(res => res.json())
+      .then(data => {
+        // Map database fields to frontend camelCase fields if necessary
+        const mapped = data.map(emp => ({
+          ...emp,
+          workerId: emp.worker_id,
+          salaryType: emp.salary_type,
+          bankDetails: emp.bank_details,
+          govId: emp.gov_id
+        }));
+        setEmployees(mapped);
+      })
+      .catch(console.error);
   }, []);
 
-  const saveToStorage = (updatedEmployees) => {
-    setEmployees(updatedEmployees);
-    localStorage.setItem("monaEmployees", JSON.stringify(updatedEmployees));
+  const saveToStorage = async (updatedEmployees, deletedId = null) => {
+    // We don't save the whole array to DB here, we handle it in handleSubmit
+    // But for deletion:
+    if (deletedId) {
+      try {
+        await fetch(`http://localhost:5000/api/employees/${deletedId}`, { method: 'DELETE' });
+        setEmployees(updatedEmployees);
+      } catch (e) { console.error(e); }
+    } else {
+      setEmployees(updatedEmployees);
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    let updated;
-    if (editingId) {
-      updated = employees.map((emp) =>
-        emp.id === editingId
-          ? { 
-              ...formData, 
-              id: editingId, 
-              workerId: emp.workerId, 
-              payments: emp.payments || [], 
-              attendance: emp.attendance || [], 
-              advanceBalance: emp.advanceBalance || 0 
-            }
-          : emp
-      );
-    } else {
-      updated = [
-        ...employees,
-        {
-          ...formData,
-          id: Date.now(),
-          workerId: generateWorkerId(),
-          payments: [],
-          attendance: [],
-          advanceBalance: 0,
-        },
-      ];
+    try {
+      if (editingId) {
+        const empToUpdate = employees.find(e => e.id === editingId);
+        const payload = { ...formData, workerId: empToUpdate.workerId };
+        await fetch(`http://localhost:5000/api/employees/${editingId}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const updated = employees.map((emp) => emp.id === editingId ? { ...emp, ...payload } : emp);
+        saveToStorage(updated);
+      } else {
+        const newEmp = { ...formData, id: Date.now(), workerId: generateWorkerId() };
+        await fetch('http://localhost:5000/api/employees', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(newEmp)
+        });
+        saveToStorage([...employees, newEmp]);
+      }
+      closeModal();
+    } catch (error) {
+      console.error(error);
     }
-    saveToStorage(updated);
-    closeModal();
   };
 
   const closeModal = () => {
@@ -456,7 +444,7 @@ const EmployeesPage = () => {
                           onClick={() => {
                             if(window.confirm("Are you sure you want to delete this employee?")) {
                               const updated = employees.filter((e) => e.id !== emp.id);
-                              saveToStorage(updated);
+                              saveToStorage(updated, emp.id);
                             }
                           }}
                           className="text-slate-400 hover:text-rose-500 transition"
@@ -483,7 +471,7 @@ const EmployeesPage = () => {
                   <Edit2 size={14} />
                 </button>
                 <button onClick={() => {
-                    if(window.confirm("Delete employee?")) saveToStorage(employees.filter(e => e.id !== emp.id));
+                    if(window.confirm("Delete employee?")) saveToStorage(employees.filter(e => e.id !== emp.id), emp.id);
                   }} className="text-slate-400 hover:text-rose-500 p-1">
                   <Trash2 size={14} />
                 </button>

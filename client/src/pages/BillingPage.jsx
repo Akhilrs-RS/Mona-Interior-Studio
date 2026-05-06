@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import { useNavigate, useLocation } from "react-router-dom";
 import PrintableInvoice from "../components/PrintableInvoice";
-import { Trash2, Printer, Save, RotateCcw, Search, History, X, Eye, Edit3, ArrowLeft } from "lucide-react";
+import { Trash2, Printer, Save, RotateCcw, Search, History, X, Eye, Edit3, ArrowLeft, FileText, Plus } from "lucide-react";
 
 export default function BillingPage() {
   const navigate = useNavigate();
@@ -14,7 +14,7 @@ export default function BillingPage() {
   const [clientName, setClientName] = useState("");
   const [clientAddress, setClientAddress] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
-  const [invoiceDate] = useState(new Date().toLocaleDateString("en-GB"));
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toLocaleDateString("en-GB"));
   
   // Footer fields
   const [discount, setDiscount] = useState(0);
@@ -35,14 +35,132 @@ export default function BillingPage() {
     gstPerc: 18,
   });
 
+  // ── MULTI-SESSION LOGIC ──────────────────────────────────────
+  const [sessions, setSessions] = useState(() => {
+    const saved = localStorage.getItem("billing_sessions");
+    return saved ? JSON.parse(saved) : [{ id: 'default', title: 'New Invoice', data: null }];
+  });
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    return localStorage.getItem("active_billing_session") || 'default';
+  });
+
+  // Load session data when active session changes
+  useEffect(() => {
+    const session = sessions.find(s => s.id === activeSessionId);
+    if (session && session.data) {
+      const d = session.data;
+      setItems(d.items || []);
+      setClientName(d.clientName || "");
+      setClientAddress(d.clientAddress || "");
+      setBillType(d.billType || "GST");
+      setDiscount(d.discount || 0);
+      setLessAmount(d.lessAmount || 0);
+      setAdvanceAmount(d.advanceAmount || 0);
+      setReceivedAmount(d.receivedAmount || 0);
+      setIsEditMode(d.isEditMode || false);
+      setEditBadge(d.editBadge || "");
+      if(d.invoiceNo) setInvoiceNo(d.invoiceNo);
+    } else {
+      // Clear for a new session if no data
+      setItems([]);
+      setClientName("");
+      setClientAddress("");
+      setBillType("GST");
+      setDiscount(0);
+      setLessAmount(0);
+      setAdvanceAmount(0);
+      setReceivedAmount(0);
+      setIsEditMode(false);
+      setEditBadge("");
+      const lastNum = localStorage.getItem("lastInvoiceNumber") || "1000";
+      setInvoiceNo(`MI/SRV/${parseInt(lastNum) + 1}/26-27`);
+    }
+    localStorage.setItem("active_billing_session", activeSessionId);
+  }, [activeSessionId]);
+
+  // Persist current state to sessions array
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSessions(prev => prev.map(s => s.id === activeSessionId ? {
+        ...s,
+        title: clientName || "New Invoice",
+        data: { items, clientName, clientAddress, billType, discount, lessAmount, advanceAmount, receivedAmount, isEditMode, editBadge, invoiceNo }
+      } : s));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [items, clientName, clientAddress, billType, discount, lessAmount, advanceAmount, receivedAmount, isEditMode, editBadge, invoiceNo, activeSessionId]);
+
+  useEffect(() => {
+    localStorage.setItem("billing_sessions", JSON.stringify(sessions));
+  }, [sessions]);
+
+  const createNewSession = () => {
+    const newId = `session-${Date.now()}`;
+    const newSession = { id: newId, title: 'New Invoice', data: null };
+    setSessions(prev => [...prev, newSession]);
+    setActiveSessionId(newId);
+  };
+
+  const closeSession = (id, e) => {
+    e.stopPropagation();
+    if (sessions.length === 1) {
+      // Don't close the last session, just clear it
+      setSessions([{ id: 'default', title: 'New Invoice', data: null }]);
+      setActiveSessionId('default');
+      setItems([]);
+      setClientName("");
+      setClientAddress("");
+      setBillType("GST");
+      setDiscount(0);
+      setLessAmount(0);
+      setAdvanceAmount(0);
+      setReceivedAmount(0);
+      setIsEditMode(false);
+      setEditBadge("");
+      return;
+    }
+    const newSessions = sessions.filter(s => s.id !== id);
+    setSessions(newSessions);
+    if (activeSessionId === id) {
+      setActiveSessionId(newSessions[newSessions.length - 1].id);
+    }
+  };
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'F2') { e.preventDefault(); saveInvoice(); }
+      if (e.key === 'F5') { e.preventDefault(); handlePrint(); }
+      if (e.key === 'F8') { e.preventDefault(); clearForm(); }
+      if (e.key === 'F9') { e.preventDefault(); navigate("/invoices"); }
+      if (e.key === 'F1') { e.preventDefault(); deleteInvoice(); }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [items, clientName, isEditMode]); // Add dependencies as needed
+
   // Load Data + handle incoming navigation state
   useEffect(() => {
+    if (location.state?.newSession) {
+      createNewSession();
+      // Clear state so it doesn't trigger again
+      navigate(location.pathname, { replace: true, state: {} });
+      return;
+    }
+
     const lastNum = localStorage.getItem("lastInvoiceNumber") || "1000";
     const newNum = parseInt(lastNum) + 1;
     setInvoiceNo(`MI/SRV/${newNum}/26-27`);
 
-    setSavedQuotations(JSON.parse(localStorage.getItem("savedQuotations") || "[]"));
-    setSavedInvoices(JSON.parse(localStorage.getItem("savedInvoices") || "[]"));
+    // Fetch Quotations for 'FROM QUOTE' functionality
+    const fetchQuotes = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/quotations');
+        const data = await res.json();
+        setSavedQuotations(data);
+      } catch(err) { console.error(err); }
+    };
+    fetchQuotes();
 
     // ── Handle: Convert from Quotation ───────────────────────────
     if (location.state?.convertQuote) {
@@ -82,6 +200,7 @@ export default function BillingPage() {
       setLessAmount(inv.lessAmount || 0);
       setAdvanceAmount(inv.advanceAmount || 0);
       setReceivedAmount(inv.receivedAmount || 0);
+      setInvoiceDate(inv.invoiceDate || new Date().toLocaleDateString("en-GB"));
       setIsEditMode(true);
       setEditBadge(`Editing Invoice: ${inv.invoiceNo}`);
     }
@@ -92,13 +211,14 @@ export default function BillingPage() {
     setClientName(quote.clientName);
     setClientAddress(quote.clientAddress || "");
     const isNonGST = quote.billType === "Non-GST";
-    if (isNonGST) setBillType("Non-GST"); else setBillType("GST");
+    const type = isNonGST ? "Non-GST" : "GST";
+    setBillType(type);
     const mappedItems = quote.items.map(i => {
       const taxable = parseFloat(i.area || 1) * parseFloat(i.rate);
       const gst = isNonGST ? 0 : (taxable * 18) / 100;
       return {
         work: i.description,
-        unit: "Sq.Ft",
+        unit: i.unit || "Sq.Ft",
         area: i.area,
         price: i.rate,
         gstPerc: isNonGST ? 0 : 18,
@@ -145,59 +265,107 @@ export default function BillingPage() {
   const grandTotal = (subTotal - discountAmt - (parseFloat(lessAmount) || 0)) + totalGst;
   const balanceAmount = grandTotal - (parseFloat(advanceAmount) || 0) - (parseFloat(receivedAmount) || 0);
 
-  const saveInvoice = () => {
+  const saveInvoice = async () => {
     if (!clientName || items.length === 0) return alert("Missing client or items");
 
     const currentNum = invoiceNo.split("/")[2];
     localStorage.setItem("lastInvoiceNumber", currentNum);
 
     const newInvoice = {
+      id: isEditMode ? location.state.editInvoice.id : `INV-${Date.now()}`,
       invoiceNo,
       invoiceDate,
       clientName,
       clientAddress,
-      items,
-      subTotal,
-      totalGst,
-      grandTotal,
-      discount,
-      lessAmount,
-      advanceAmount,
-      receivedAmount,
-      balanceAmount,
+      items: {
+        itemsList: items,
+        discount,
+        lessAmount,
+        advanceAmount,
+        receivedAmount,
+        balanceAmount,
+        subTotal,
+        totalGst,
+        grandTotal
+      },
+      date: new Date().toISOString().split('T')[0], // For database
+      total: grandTotal,
+      billType,
+      status: "Unpaid"
     };
 
-    const existing = JSON.parse(localStorage.getItem("savedInvoices") || "[]");
-    let updated;
-    if (isEditMode) {
-      // Replace existing invoice with same invoiceNo
-      updated = existing.map((inv) =>
-        inv.invoiceNo === invoiceNo ? newInvoice : inv
-      );
-      if (!updated.find((inv) => inv.invoiceNo === invoiceNo)) {
-        updated = [newInvoice, ...existing];
+    try {
+      if (isEditMode) {
+        await fetch(`http://localhost:5000/api/finance/invoices/${newInvoice.id}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(newInvoice)
+        });
+      } else {
+        await fetch('http://localhost:5000/api/finance/invoices', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(newInvoice)
+        });
       }
-    } else {
-      updated = [newInvoice, ...existing];
-    }
-    localStorage.setItem("savedInvoices", JSON.stringify(updated));
-    setSavedInvoices(updated);
-    setIsEditMode(false);
-    setEditBadge("");
-    alert(isEditMode ? "Invoice Updated Successfully!" : "Invoice Saved Successfully!");
+      setIsEditMode(false);
+      setEditBadge("");
+      alert(isEditMode ? "Invoice Updated Successfully!" : "Invoice Saved Successfully!");
+    } catch(err) { console.error(err); }
   };
 
   const loadOldInvoice = (inv) => {
+    // This function is kept for potential future use within the page, though it's typically loaded via router state.
     setInvoiceNo(inv.invoiceNo);
     setClientName(inv.clientName);
     setClientAddress(inv.clientAddress);
-    setItems(inv.items);
-    setDiscount(inv.discount);
-    setLessAmount(inv.lessAmount);
-    setAdvanceAmount(inv.advanceAmount);
-    setReceivedAmount(inv.receivedAmount);
+    setItems(inv.items?.itemsList || inv.items);
+    setDiscount(inv.items?.discount || 0);
+    setLessAmount(inv.items?.lessAmount || 0);
+    setAdvanceAmount(inv.items?.advanceAmount || 0);
+    setReceivedAmount(inv.items?.receivedAmount || 0);
     setIsEditMode(true);
     setEditBadge(`Editing Invoice: ${inv.invoiceNo}`);
+  };
+
+  const deleteInvoice = async () => {
+    if (!isEditMode) return clearForm();
+    if (!window.confirm("Are you sure you want to delete this invoice? This cannot be undone.")) return;
+    
+    try {
+      const id = location.state.editInvoice.id;
+      await fetch(`http://localhost:5000/api/finance/invoices/${id}`, {
+        method: 'DELETE'
+      });
+      alert("Invoice deleted successfully");
+      setIsEditMode(false);
+      setEditBadge("");
+      setItems([]);
+      setClientName("");
+      setClientAddress("");
+      // Optionally navigate back or create new session
+      navigate("/invoices");
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting invoice");
+    }
+  };
+
+  const toggleBillType = (type) => {
+    setBillType(type);
+    const newGst = type === "Non-GST" ? 0 : 18;
+    setNewItem(p => ({...p, gstPerc: newGst}));
+    
+    setItems(prevItems => prevItems.map(item => {
+      const taxable = parseFloat(item.area || 1) * parseFloat(item.price);
+      const gst = type === "Non-GST" ? 0 : (taxable * 18) / 100;
+      return {
+        ...item,
+        gstPerc: type === "Non-GST" ? 0 : 18,
+        gstAmount: gst,
+        amount: taxable + gst
+      };
+    }));
   };
 
   const clearForm = () => {
@@ -209,11 +377,44 @@ export default function BillingPage() {
       setLessAmount(0);
       setAdvanceAmount(0);
       setReceivedAmount(0);
+      setIsEditMode(false);
+      setEditBadge("");
     }
   };
 
   return (
     <div className="bg-gray-200 min-h-screen font-sans text-slate-800 flex flex-col">
+      {/* Sessions Tab Bar */}
+      <div className="bg-slate-800 px-2 pt-2 flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-slate-700">
+        {sessions.map(s => (
+          <div
+            key={s.id}
+            onClick={() => setActiveSessionId(s.id)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
+              activeSessionId === s.id 
+              ? "bg-gray-200 text-slate-800 shadow-[0_-2px_10px_rgba(0,0,0,0.2)]" 
+              : "bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white"
+            }`}
+          >
+            <FileText size={12} className={activeSessionId === s.id ? "text-blue-600" : "text-slate-500"} />
+            <span className="max-w-[100px] truncate">{s.title}</span>
+            <button 
+              onClick={(e) => closeSession(s.id, e)}
+              className={`p-0.5 rounded-full hover:bg-black/10 transition ${activeSessionId === s.id ? "text-slate-400 hover:text-red-500" : "text-slate-500 hover:text-white"}`}
+            >
+              <X size={10} />
+            </button>
+          </div>
+        ))}
+        <button 
+          onClick={createNewSession}
+          className="p-1.5 text-blue-400 hover:text-blue-300 transition hover:bg-white/5 rounded-full mb-1"
+          title="New Invoice Session"
+        >
+          <Plus size={16} strokeWidth={3} />
+        </button>
+      </div>
+
       {/* Edit / Conversion Mode Banner */}
       {editBadge && (
         <div className={`px-4 py-2 flex items-center justify-between text-xs font-bold ${
@@ -249,11 +450,11 @@ export default function BillingPage() {
           <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Bill Type</label>
           <div className="flex bg-gray-200 rounded p-0.5 gap-0.5">
             <button
-              onClick={() => { setBillType("GST"); setNewItem(p => ({...p, gstPerc: 18})); }}
+              onClick={() => toggleBillType("GST")}
               className={`flex-1 py-1 text-[10px] font-black uppercase rounded transition ${billType === "GST" ? "bg-blue-600 text-white" : "text-slate-500 hover:text-slate-700"}`}
             >GST</button>
             <button
-              onClick={() => { setBillType("Non-GST"); setNewItem(p => ({...p, gstPerc: 0})); }}
+              onClick={() => toggleBillType("Non-GST")}
               className={`flex-1 py-1 text-[10px] font-black uppercase rounded transition ${billType === "Non-GST" ? "bg-rose-600 text-white" : "text-slate-500 hover:text-slate-700"}`}
             >Non-GST</button>
           </div>
@@ -487,7 +688,7 @@ export default function BillingPage() {
         <button onClick={() => navigate("/invoices")} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded flex items-center gap-2 text-xs font-bold transition shadow-sm">
           <History size={14} /> Invoices - F9
         </button>
-        <button onClick={() => window.alert("Delete function")} className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded flex items-center gap-2 text-xs font-bold transition shadow-sm">
+        <button onClick={deleteInvoice} className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded flex items-center gap-2 text-xs font-bold transition shadow-sm">
           <Trash2 size={14} /> Delete - F1
         </button>
         <button onClick={handlePrint} className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-1.5 rounded flex items-center gap-2 text-xs font-bold transition shadow-sm">

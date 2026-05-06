@@ -102,19 +102,21 @@ export default function SitesPage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
   // Load data
+  const loadSites = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/sites');
+      const data = await res.json();
+      setSites(data);
+    } catch(err) { console.error(err); }
+  };
+
   useEffect(() => {
-    const saved = localStorage.getItem("monaSites");
-    if (saved) {
-      setSites(JSON.parse(saved));
-    } else {
-      setSites(INITIAL_SITES);
-      localStorage.setItem("monaSites", JSON.stringify(INITIAL_SITES));
-    }
+    loadSites();
   }, []);
 
-  const saveToStorage = (newSites) => {
+  const saveToStorage = async (newSites) => {
+    // We update local state, DB is handled by specific operations
     setSites(newSites);
-    localStorage.setItem("monaSites", JSON.stringify(newSites));
   };
 
   const selectedSite = sites.find((s) => s.id === selectedSiteId) || null;
@@ -135,9 +137,18 @@ export default function SitesPage() {
   };
 
   // HANDLERS
-  const updateSiteProperty = (siteId, key, value) => {
-    const updated = sites.map((s) => (s.id === siteId ? { ...s, [key]: value } : s));
-    saveToStorage(updated);
+  const updateSiteProperty = async (siteId, key, value) => {
+    const s = sites.find(s => s.id === siteId);
+    if (!s) return;
+    const payload = { ...s, [key]: value };
+    try {
+      await fetch(`http://localhost:5000/api/sites/${siteId}`, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      loadSites();
+    } catch (e) { console.error(e); }
   };
 
   const handleMaintenanceUpdate = (e) => {
@@ -154,11 +165,11 @@ export default function SitesPage() {
   };
 
   // New Site Form
-  const handleCreateSite = (e) => {
+  const handleCreateSite = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const newSite = {
-      id: Date.now(),
+      id: Date.now().toString(),
       name: fd.get("name"),
       location: fd.get("location"),
       status: fd.get("status"),
@@ -167,11 +178,18 @@ export default function SitesPage() {
       history: [],
       maintenance: { required: false, frequency: "", lastDone: "", nextDue: "" },
     };
-    saveToStorage([newSite, ...sites]);
-    setIsSiteModalOpen(false);
+    try {
+      await fetch('http://localhost:5000/api/sites', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(newSite)
+      });
+      loadSites();
+      setIsSiteModalOpen(false);
+    } catch (e) { console.error(e); }
   };
 
-  const handleAddMedia = (e) => {
+  const handleAddMedia = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const newMedia = {
@@ -180,14 +198,21 @@ export default function SitesPage() {
       url: fd.get("url"),
       category: fd.get("category"),
     };
-    const updated = sites.map((s) =>
-      s.id === selectedSiteId ? { ...s, media: [newMedia, ...s.media] } : s
-    );
-    saveToStorage(updated);
-    setIsMediaModalOpen(false);
+    const s = sites.find(s => s.id === selectedSiteId);
+    if (!s) return;
+    const payload = { ...s, media: [newMedia, ...s.media] };
+    try {
+      await fetch(`http://localhost:5000/api/sites/${selectedSiteId}`, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      loadSites();
+      setIsMediaModalOpen(false);
+    } catch (e) { console.error(e); }
   };
 
-  const handleAddHistory = (e) => {
+  const handleAddHistory = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const newHistory = {
@@ -195,11 +220,18 @@ export default function SitesPage() {
       date: fd.get("date"),
       desc: fd.get("desc"),
     };
-    const updated = sites.map((s) =>
-      s.id === selectedSiteId ? { ...s, history: [newHistory, ...s.history] } : s
-    );
-    saveToStorage(updated);
-    setIsHistoryModalOpen(false);
+    const s = sites.find(s => s.id === selectedSiteId);
+    if (!s) return;
+    const payload = { ...s, history: [newHistory, ...s.history] };
+    try {
+      await fetch(`http://localhost:5000/api/sites/${selectedSiteId}`, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      loadSites();
+      setIsHistoryModalOpen(false);
+    } catch (e) { console.error(e); }
   };
 
   return (
