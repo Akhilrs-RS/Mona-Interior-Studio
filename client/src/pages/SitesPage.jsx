@@ -106,7 +106,7 @@ export default function SitesPage() {
     try {
       const res = await fetch('http://localhost:5000/api/sites');
       const data = await res.json();
-      setSites(data);
+      setSites(data.map(s => ({ ...s, location: s.address, team: s.clientName, history: Array.isArray(s.workHistory) ? s.workHistory : [], media: [] })));
     } catch(err) { console.error(err); }
   };
 
@@ -140,7 +140,16 @@ export default function SitesPage() {
   const updateSiteProperty = async (siteId, key, value) => {
     const s = sites.find(s => s.id === siteId);
     if (!s) return;
-    const payload = { ...s, [key]: value };
+    const payload = { 
+      name: s.name, 
+      address: key === "location" ? value : s.address, 
+      clientName: key === "team" ? value : s.clientName, 
+      status: key === "status" ? value : s.status,
+      workHistory: key === "history" ? value : s.workHistory,
+      startDate: s.startDate,
+      budget: s.budget,
+      description: s.description
+    };
     try {
       await fetch(`http://localhost:5000/api/sites/${siteId}`, {
         method: 'PUT',
@@ -168,15 +177,15 @@ export default function SitesPage() {
   const handleCreateSite = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const newSite = {
-      id: Date.now().toString(),
-      name: fd.get("name"),
-      location: fd.get("location"),
-      status: fd.get("status"),
-      team: fd.get("team"),
-      media: [],
-      history: [],
-      maintenance: { required: false, frequency: "", lastDone: "", nextDue: "" },
+    const newSite = { 
+      name: fd.get("name"), 
+      address: fd.get("location"), 
+      clientName: fd.get("team"), 
+      status: fd.get("status"), 
+      startDate: new Date().toISOString(), 
+      budget: 0, 
+      description: "", 
+      workHistory: [] 
     };
     try {
       await fetch('http://localhost:5000/api/sites', {
@@ -336,8 +345,19 @@ export default function SitesPage() {
                   <div className="flex justify-between items-start mb-6">
                     <div>
                       <h2 className="text-3xl font-black">{selectedSite.name}</h2>
-                      <div className="flex items-center gap-2 mt-2 text-indigo-300 text-sm font-medium">
-                        <MapPin size={16} /> {selectedSite.location}
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center gap-2 text-indigo-300 text-sm font-medium">
+                          <MapPin size={16} /> {selectedSite.location}
+                        </div>
+                        <button 
+                          onClick={() => {
+                            const val = window.prompt("Edit Site Location:", selectedSite.location || "");
+                            if (val !== null) updateSiteProperty(selectedSite.id, "location", val);
+                          }}
+                          className="text-[9px] font-black uppercase text-indigo-400 hover:text-indigo-300 opacity-60 hover:opacity-100 transition-all"
+                        >
+                          Edit Loc
+                        </button>
                       </div>
                     </div>
                     <select
@@ -353,10 +373,21 @@ export default function SitesPage() {
                     </select>
                   </div>
 
-                  <div className="flex items-center gap-2 text-slate-400 text-sm border-t border-slate-700 pt-4">
-                    <Users size={16} />
-                    <span className="font-bold text-slate-300">Team:</span>{" "}
-                    {selectedSite.team || "Unassigned"}
+                  <div className="flex items-center justify-between text-slate-400 text-sm border-t border-slate-700 pt-4">
+                    <div className="flex items-center gap-2">
+                      <Users size={16} />
+                      <span className="font-bold text-slate-300">Team:</span>{" "}
+                      {selectedSite.team || "Unassigned"}
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const val = window.prompt("Edit Team Members:", selectedSite.team || "");
+                        if (val !== null) updateSiteProperty(selectedSite.id, "team", val);
+                      }}
+                      className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors"
+                    >
+                      Change Team
+                    </button>
                   </div>
                 </div>
 
@@ -370,7 +401,7 @@ export default function SitesPage() {
                         : "text-slate-500 hover:bg-slate-100"
                     }`}
                   >
-                    <Camera size={16} /> Media Gallery ({selectedSite.media.length})
+                    <Camera size={16} /> Media Gallery ({(selectedSite.media || []).length})
                   </button>
                   <button
                     onClick={() => setActiveTab("history")}
@@ -380,7 +411,7 @@ export default function SitesPage() {
                         : "text-slate-500 hover:bg-slate-100"
                     }`}
                   >
-                    <History size={16} /> Work Timeline ({selectedSite.history.length})
+                    <History size={16} /> Work Timeline ({(selectedSite.history || []).length})
                   </button>
                   <button
                     onClick={() => setActiveTab("maintenance")}
@@ -410,14 +441,14 @@ export default function SitesPage() {
                         </button>
                       </div>
                       
-                      {selectedSite.media.length === 0 ? (
+                      {(selectedSite.media || []).length === 0 ? (
                         <div className="border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center text-slate-400">
                           <ImageIcon className="mx-auto mb-3" size={40} />
                           <p className="font-bold text-sm">No media uploaded yet.</p>
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {selectedSite.media.map((m) => (
+                          {(selectedSite.media || []).map((m) => (
                             <div key={m.id} className="group relative rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-900 aspect-video flex items-center justify-center">
                               {m.type === "image" ? (
                                 <img src={m.url} alt={m.category} className="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-90" />
@@ -450,14 +481,14 @@ export default function SitesPage() {
                         </button>
                       </div>
 
-                      {selectedSite.history.length === 0 ? (
+                      {(selectedSite.history || []).length === 0 ? (
                         <div className="border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center text-slate-400">
                           <Clock className="mx-auto mb-3" size={40} />
                           <p className="font-bold text-sm">No timeline entries yet.</p>
                         </div>
                       ) : (
                         <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-indigo-100 before:to-transparent">
-                          {selectedSite.history.sort((a,b) => new Date(b.date) - new Date(a.date)).map((entry, idx) => (
+                          {(selectedSite.history || []).sort((a,b) => new Date(b.date) - new Date(a.date)).map((entry, idx) => (
                             <div key={entry.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                               <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-indigo-500 text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                                 <CheckCircle2 size={16} />

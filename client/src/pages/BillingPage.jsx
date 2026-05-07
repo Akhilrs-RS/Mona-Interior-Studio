@@ -494,13 +494,13 @@ export default function BillingPage() {
 
       {/* Work Entry Row */}
       <div className="bg-orange-50 p-1 grid grid-cols-12 gap-1 border-b border-orange-200">
-        <div className="col-span-5">
+        <div className="col-span-4">
           <label className="block text-[10px] font-bold text-orange-800 text-center uppercase">Work Description</label>
           <input 
             placeholder="e.g. Living Room False Ceiling"
             value={newItem.work}
             onChange={(e) => setNewItem({...newItem, work: e.target.value})}
-            onKeyPress={(e) => e.key === 'Enter' && addItem()}
+            onKeyPress={(e) => e.key === "Enter" && addItem()}
             className="w-full bg-white border border-orange-200 px-2 py-1 text-sm outline-none focus:border-orange-400 font-medium" 
           />
         </div>
@@ -532,7 +532,7 @@ export default function BillingPage() {
             type="number"
             value={newItem.price}
             onChange={(e) => setNewItem({...newItem, price: e.target.value})}
-            onKeyPress={(e) => e.key === 'Enter' && addItem()}
+            onKeyPress={(e) => e.key === "Enter" && addItem()}
             className="w-full bg-white border border-orange-200 px-2 py-1 text-sm text-right outline-none focus:border-orange-400 font-bold" 
           />
         </div>
@@ -550,6 +550,11 @@ export default function BillingPage() {
           <div className="w-full bg-orange-100 border border-orange-200 px-2 py-1 text-sm text-right font-bold text-orange-700 h-[26px]">
             {((parseFloat(newItem.area || 1) * parseFloat(newItem.price || 0)) * (1 + (parseFloat(newItem.gstPerc || 0)/100))).toFixed(2)}
           </div>
+        </div>
+        <div className="col-span-1 flex items-end">
+          <button onClick={addItem} type="button" className="w-full bg-orange-600 hover:bg-orange-700 text-white h-[26px] flex items-center justify-center rounded shadow-sm transition-all active:scale-95" title="Add Item to Invoice">
+            <Plus size={16} strokeWidth={3} />
+          </button>
         </div>
       </div>
 
@@ -691,7 +696,7 @@ export default function BillingPage() {
         <button onClick={deleteInvoice} className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded flex items-center gap-2 text-xs font-bold transition shadow-sm">
           <Trash2 size={14} /> Delete - F1
         </button>
-        <button onClick={handlePrint} className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-1.5 rounded flex items-center gap-2 text-xs font-bold transition shadow-sm">
+        <button onClick={() => handlePrint()} className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-1.5 rounded flex items-center gap-2 text-xs font-bold transition shadow-sm">
           <Printer size={14} /> Print - F5
         </button>
         <button onClick={saveInvoice} className={`${isEditMode ? "bg-violet-600 hover:bg-violet-700" : "bg-emerald-600 hover:bg-emerald-700"} text-white px-8 py-1.5 rounded flex items-center gap-2 text-xs font-bold transition shadow-sm`}>

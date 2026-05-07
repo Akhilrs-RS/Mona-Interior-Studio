@@ -4,7 +4,7 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import {
   User, Briefcase, Calendar, Plus, Phone, MapPin, Search, DollarSign,
   TrendingUp, Activity, Star, CheckCircle, Clock, Mail, Tag, Percent,
-  CheckSquare, BarChart2, Download, Filter, PieChart
+  CheckSquare, BarChart2, Download, Filter, PieChart, Trash2
 } from "lucide-react";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -423,7 +423,7 @@ const CRMPage = () => {
                              <button title="Mark Completed" className="text-emerald-600 hover:text-emerald-700 font-bold px-2 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-200 text-xs flex items-center gap-1" onClick={() => completeActivity(act)}><CheckCircle size={14}/></button>
                            )}
                            <button className="text-stone-500 hover:text-stone-900 font-bold px-3 py-1.5 rounded-lg bg-stone-50 hover:bg-stone-100 transition-colors border border-stone-200 text-xs" onClick={() => setEditActivity(act)}>Edit</button>
-                           <button title="Delete Activity" className="text-red-500 hover:text-red-700 font-bold px-2 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors border border-red-200 text-xs flex items-center gap-1" onClick={() => deleteActivity(act.id)}><Trash size={14}/></button>
+                           <button title="Delete Activity" className="text-red-500 hover:text-red-700 font-bold px-2 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors border border-red-200 text-xs flex items-center gap-1" onClick={() => deleteActivity(act.id)}><Trash2 size={14}/></button>
                         </div>
                       </div>
                     </div>

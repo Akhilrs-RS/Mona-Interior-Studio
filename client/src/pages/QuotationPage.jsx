@@ -312,7 +312,7 @@ export default function QuotationPage() {
 
       {/* ── ITEM ENTRY ROW ── */}
       <div className="bg-orange-50 p-1 grid grid-cols-12 gap-1 border-b border-orange-200">
-        <div className="col-span-5">
+        <div className="col-span-4">
           <label className="block text-[10px] font-bold text-orange-800 text-center uppercase">
             Work Description
           </label>
@@ -380,6 +380,11 @@ export default function QuotationPage() {
               parseFloat(newItem.area || 1) * parseFloat(newItem.rate || 0)
             ).toFixed(2)}
           </div>
+        </div>
+        <div className="col-span-1 flex items-end">
+          <button onClick={addItem} type="button" className="w-full bg-orange-600 hover:bg-orange-700 text-white h-[26px] flex items-center justify-center rounded shadow-sm transition-all active:scale-95" title="Add Item to List">
+            <Plus size={16} strokeWidth={3} />
+          </button>
         </div>
       </div>
 
@@ -508,7 +513,7 @@ export default function QuotationPage() {
           <History size={14} /> Invoices
         </button>
         <button
-          onClick={handlePrint}
+          onClick={() => handlePrint()}
           disabled={items.length === 0}
           className="bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white px-4 py-1.5 rounded flex items-center gap-2 text-xs font-bold transition shadow-sm"
         >
@@ -532,7 +537,7 @@ export default function QuotationPage() {
       <div className="opacity-0 fixed top-0 left-0 pointer-events-none">
         <PrintableQuotation
           ref={componentRef}
-          data={{ customer: clientName, address: clientAddress, items }}
+          data={{ customer: clientName, address: clientAddress, items, quoteNo, date: quoteDate, billType }}
         />
       </div>
     </div>

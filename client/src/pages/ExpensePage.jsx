@@ -78,7 +78,7 @@ export default function ExpensePage() {
     try {
       const res = await fetch('http://localhost:5000/api/finance/expenses');
       const data = await res.json();
-      setExpenseHistory(data);
+      setExpenseHistory(data.map(e => ({ ...e, cost: e.amount, expenseType: e.type, client: e.clientId, material: e.description })));
     } catch(err) { console.error(err); }
   };
 
@@ -98,7 +98,7 @@ export default function ExpensePage() {
         await fetch('http://localhost:5000/api/finance/expenses', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({...item, id: `EXP-${Date.now()}-${Math.floor(Math.random()*1000)}`})
+          body: JSON.stringify({ date: item.date, category: item.category, description: item.expenseType === "Client" ? item.material : item.description, amount: item.cost, clientId: item.client, type: item.expenseType })
         });
       }
       setBulkItems([]);
@@ -129,7 +129,7 @@ export default function ExpensePage() {
       await fetch('http://localhost:5000/api/finance/expenses', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(entry)
+        body: JSON.stringify({ date: entry.date, category: entry.category, description: entry.expenseType === "Client" ? entry.material : entry.description, amount: entry.cost, clientId: entry.client, type: entry.expenseType })
       });
       loadExpenses();
       setIsModalOpen(false);
