@@ -127,12 +127,7 @@ const PrintableInvoice = forwardRef(({ data, docType }, ref) => {
           </div>
 
           <div className="bg-gray-50 p-2 mt-4 space-y-1 text-xs">
-            {(parseFloat(safeData.advanceAmount) > 0) && (
-              <div className="flex justify-between">
-                <span>Advance Paid:</span> 
-                <span>₹{parseFloat(safeData.advanceAmount).toFixed(2)}</span>
-              </div>
-            )}
+
             {(parseFloat(safeData.receivedAmount) > 0) && (
               <div className="flex justify-between">
                 <span>Received Now:</span> 

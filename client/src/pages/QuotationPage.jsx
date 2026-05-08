@@ -507,10 +507,10 @@ export default function QuotationPage() {
           <RotateCcw size={14} /> Clear
         </button>
         <button
-          onClick={() => navigate("/invoices")}
+          onClick={() => navigate("/invoices", { state: { activeTab: "quotations" } })}
           className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded flex items-center gap-2 text-xs font-bold transition shadow-sm"
         >
-          <History size={14} /> Invoices
+          <History size={14} /> Quotations
         </button>
         <button
           onClick={() => handlePrint()}

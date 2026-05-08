@@ -641,15 +641,7 @@ export default function BillingPage() {
               className="w-20 bg-white border border-orange-200 px-1 py-0.5 text-xs text-right outline-none" 
             />
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Advance Amount</label>
-            <input 
-              type="number" 
-              value={advanceAmount}
-              onChange={(e) => setAdvanceAmount(e.target.value)}
-              className="w-20 bg-white border border-orange-200 px-1 py-0.5 text-xs text-right outline-none" 
-            />
-          </div>
+
           <div className="flex items-center justify-between gap-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase">Invoice Less ₹</label>
             <input 

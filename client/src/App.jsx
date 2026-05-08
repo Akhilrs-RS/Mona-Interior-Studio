@@ -18,6 +18,7 @@ import EmployeesPage from "./pages/EmployeesPage";
 import AttendancePage from "./pages/AttendancePage";
 import SalaryPage from "./pages/SalaryPage";
 import ReportsPage from "./pages/ReportsPage";
+import ReceiptPage from "./pages/ReceiptPage";
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -40,6 +41,7 @@ function App() {
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/expenses" element={<ExpensePage />} />
             <Route path="/accounts" element={<AccountsPage />} />
+            <Route path="/receipts" element={<ReceiptPage />} />
 
             {/* Projects */}
             <Route path="/sites" element={<SitesPage />} />

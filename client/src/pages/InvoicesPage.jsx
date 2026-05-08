@@ -6,7 +6,7 @@ import {
   IndianRupee, TrendingUp, Calendar, X, Filter, Edit2, Trash2,
   History, FileCheck,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 function getStatusInfo(inv) {
   const bal = parseFloat(inv.balanceAmount || 0);
@@ -25,7 +25,8 @@ function getQuoteStatus(q) {
 
 export default function HistoryPage() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("invoices");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || "invoices");
   const [savedInvoices, setSavedInvoices] = useState([]);
   const [quotations, setQuotations] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");

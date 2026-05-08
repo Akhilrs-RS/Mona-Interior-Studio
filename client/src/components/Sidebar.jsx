@@ -32,12 +32,27 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   const menuItems = [
     { path: "/", name: "Dashboard", icon: <LayoutDashboard size={20} /> },
-    { path: "/crm", name: "CRM (Customers)", icon: <Users size={20} /> },
-    { path: "/quotations", name: "Quotations", icon: <ClipboardList size={20} />, canAdd: true },
+    { path: "/crm", name: "CRM", icon: <Users size={20} /> },
+    {
+      path: "/quotations",
+      name: "Quotations",
+      icon: <ClipboardList size={20} />,
+      canAdd: true,
+    },
 
     { type: "header", name: "FINANCE" },
-    { path: "/billing", name: "Invoices", icon: <FileText size={20} />, canAdd: true },
-    { path: "/invoices", name: "Transaction History", icon: <FileStack size={20} /> },
+    {
+      path: "/billing",
+      name: "Billing",
+      icon: <FileText size={20} />,
+      canAdd: true,
+    },
+    { path: "/invoices", name: "History", icon: <FileStack size={20} /> },
+    {
+      path: "/receipts",
+      name: "Payment Receipts",
+      icon: <Receipt size={20} />,
+    },
     { path: "/expenses", name: "Expenses", icon: <Receipt size={20} /> },
     { path: "/accounts", name: "Accounts", icon: <Landmark size={20} /> },
 
@@ -63,7 +78,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         className="py-5 px-4 flex items-center cursor-pointer group hover:bg-slate-800 transition border-b border-slate-800"
         title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
       >
-        <div className={`flex items-center gap-3 ${!isOpen ? "justify-center w-full" : ""}`}>
+        <div
+          className={`flex items-center gap-3 ${!isOpen ? "justify-center w-full" : ""}`}
+        >
           <div className="text-blue-400 flex-shrink-0">
             {isOpen ? <ChevronLeft size={22} /> : <Menu size={22} />}
           </div>
@@ -116,16 +133,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   </span>
                 )}
               </Link>
-              {item.canAdd && isOpen && (
-                <Link
-                  to={item.path}
-                  state={{ newSession: true }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/20 rounded-lg opacity-0 group-hover/nav-item:opacity-100 transition-all text-white/70 hover:text-white"
-                  title={`Start New ${item.name}`}
-                >
-                  <Plus size={14} strokeWidth={3} />
-                </Link>
-              )}
             </li>
           );
         })}
