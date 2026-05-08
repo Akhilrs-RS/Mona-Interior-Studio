@@ -1,38 +1,65 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useReactToPrint } from "react-to-print";
 import { Receipt, Search, Printer, Plus, User, Calendar, IndianRupee, Trash2 } from "lucide-react";
 
 export default function ReceiptPage() {
-  const [receipts, setReceipts] = useState([]);
+  const [receipts, setReceipts] = useState(() => {
+    const saved = localStorage.getItem("payment_receipts");
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     receiptNo: "",
     date: new Date().toISOString().split("T")[0],
     clientName: "",
     amount: "",
-    purpose: "Advance Payment",
+    category: "Advance Payment",
+    paymentNote: "",
     paymentMode: "Cash"
   });
+
+  useEffect(() => {
+    localStorage.setItem("payment_receipts", JSON.stringify(receipts));
+  }, [receipts]);
 
   const componentRef = useRef();
   const handlePrint = useReactToPrint({ contentRef: componentRef });
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Save the last number
+    const parts = formData.receiptNo.split("/");
+    if (parts.length >= 3) {
+      localStorage.setItem("lastReceiptNumber", parts[2]);
+    }
+
     setReceipts([{ ...formData, id: Date.now() }, ...receipts]);
     setIsModalOpen(false);
     alert("Receipt generated successfully!");
   };
 
   const openModal = () => {
+    const lastNum = localStorage.getItem("lastReceiptNumber") || "1000";
+    const newNum = parseInt(lastNum) + 1;
+    const yearSuffix = "26-27"; // Standard for the current financial year in this app
+
     setFormData({ 
       ...formData, 
-      receiptNo: "RCP-" + Date.now().toString().slice(-6),
+      receiptNo: `MI/RCP/${newNum}/${yearSuffix}`,
       clientName: "",
       amount: "",
-      purpose: "Advance Payment"
+      category: "Advance Payment",
+      paymentNote: ""
     });
     setIsModalOpen(true);
+  };
+
+  const deleteReceipt = (id) => {
+    if(window.confirm("Are you sure you want to delete this receipt?")) {
+      setReceipts(receipts.filter(r => r.id !== id));
+    }
   };
 
   return (
@@ -49,7 +76,7 @@ export default function ReceiptPage() {
           onClick={openModal}
           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition"
         >
-          <Plus size={20} /> Create New Receipt
+          <Plus size={20} /> Create Project Receipt
         </button>
       </div>
 
@@ -60,7 +87,7 @@ export default function ReceiptPage() {
               <th className="px-8 py-5">Receipt No</th>
               <th className="px-8 py-5">Date</th>
               <th className="px-8 py-5">Client Name</th>
-              <th className="px-8 py-5">Purpose</th>
+              <th className="px-8 py-5">Category</th>
               <th className="px-8 py-5 text-right">Amount</th>
               <th className="px-8 py-5 text-right">Actions</th>
             </tr>
@@ -71,10 +98,16 @@ export default function ReceiptPage() {
                 <td className="px-8 py-5 font-bold text-slate-900">{r.receiptNo}</td>
                 <td className="px-8 py-5 text-slate-500">{new Date(r.date).toLocaleDateString("en-IN")}</td>
                 <td className="px-8 py-5 font-bold">{r.clientName}</td>
-                <td className="px-8 py-5 text-xs uppercase font-black text-blue-600">{r.purpose}</td>
+                <td className="px-8 py-5 text-xs uppercase font-black text-blue-600">
+                  {r.category}
+                  {r.paymentNote && <span className="block text-[9px] text-slate-400 normal-case font-medium">{r.paymentNote}</span>}
+                </td>
                 <td className="px-8 py-5 text-right font-black text-emerald-600">₹{parseFloat(r.amount).toLocaleString()}</td>
                 <td className="px-8 py-5 text-right">
-                   <button onClick={() => { setFormData(r); setTimeout(() => handlePrint(), 100); }} className="text-blue-600 hover:text-blue-800 font-bold text-xs uppercase tracking-widest px-3 py-1 bg-blue-50 rounded-lg">Print</button>
+                   <div className="flex justify-end gap-2">
+                     <button onClick={() => { setFormData(r); setTimeout(() => handlePrint(), 100); }} className="text-blue-600 hover:text-blue-800 font-bold text-xs uppercase tracking-widest px-3 py-1 bg-blue-50 rounded-lg">Print</button>
+                     <button onClick={() => deleteReceipt(r.id)} className="text-rose-600 hover:text-rose-800 p-1 bg-rose-50 rounded-lg"><Trash2 size={16}/></button>
+                   </div>
                 </td>
               </tr>
             ))}
@@ -106,9 +139,19 @@ export default function ReceiptPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Category</label>
+                  <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full p-3 border border-slate-100 rounded-xl text-sm font-bold">
+                    <option>Advance Payment</option>
+                    <option>Partial Payment</option>
+                    <option>Closing Payment</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Amount (₹)</label>
                   <input required type="number" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} placeholder="0.00" className="w-full p-3 border border-slate-100 rounded-xl text-sm font-bold text-emerald-600" />
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Payment Mode</label>
                   <select value={formData.paymentMode} onChange={e => setFormData({...formData, paymentMode: e.target.value})} className="w-full p-3 border border-slate-100 rounded-xl text-sm font-bold">
@@ -118,10 +161,10 @@ export default function ReceiptPage() {
                     <option>Bank Transfer</option>
                   </select>
                 </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Purpose / Note</label>
-                <input required value={formData.purpose} onChange={e => setFormData({...formData, purpose: e.target.value})} placeholder="e.g. Advance for Bedroom Work" className="w-full p-3 border border-slate-100 rounded-xl text-sm font-bold" />
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Payment Note</label>
+                  <input required value={formData.paymentNote} onChange={e => setFormData({...formData, paymentNote: e.target.value})} placeholder="e.g. Master Bedroom Work" className="w-full p-3 border border-slate-100 rounded-xl text-sm font-bold" />
+                </div>
               </div>
             </div>
             <div className="flex gap-2 mt-8">
@@ -150,7 +193,7 @@ export default function ReceiptPage() {
             <p>Received with thanks from <span className="font-black border-b-2 border-slate-200 px-4 inline-block min-w-[200px]">{formData.clientName}</span></p>
             <p>the sum of Rupees <span className="font-black border-b-2 border-slate-200 px-4 inline-block min-w-[150px]">₹ {parseFloat(formData.amount || 0).toLocaleString()}</span></p>
             <p>by <span className="font-black border-b-2 border-slate-200 px-4 inline-block">{formData.paymentMode}</span></p>
-            <p>towards <span className="font-black border-b-2 border-slate-200 px-4 inline-block">{formData.purpose}</span></p>
+            <p>towards <span className="font-black border-b-2 border-slate-200 px-4 inline-block">{formData.category} {formData.paymentNote ? `(${formData.paymentNote})` : ""}</span></p>
           </div>
 
           <div className="flex justify-between items-end mt-32">
