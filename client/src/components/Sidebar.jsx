@@ -36,8 +36,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     { path: "/quotations", name: "Quotations", icon: <ClipboardList size={20} />, canAdd: true },
 
     { type: "header", name: "FINANCE" },
-    { path: "/billing", name: "Billing", icon: <FileText size={20} />, canAdd: true },
-    { path: "/invoices", name: "Invoices", icon: <FileStack size={20} /> },
+    { path: "/billing", name: "Invoices", icon: <FileText size={20} />, canAdd: true },
+    { path: "/invoices", name: "Transaction History", icon: <FileStack size={20} /> },
     { path: "/expenses", name: "Expenses", icon: <Receipt size={20} /> },
     { path: "/accounts", name: "Accounts", icon: <Landmark size={20} /> },
 
