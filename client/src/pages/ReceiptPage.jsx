@@ -15,7 +15,8 @@ export default function ReceiptPage() {
     clientName: "",
     amount: "",
     category: "Advance Payment",
-    paymentNote: "",
+    description: "",
+    comments: "",
     paymentMode: "Cash"
   });
 
@@ -37,7 +38,6 @@ export default function ReceiptPage() {
 
     setReceipts([{ ...formData, id: Date.now() }, ...receipts]);
     setIsModalOpen(false);
-    alert("Receipt generated successfully!");
   };
 
   const openModal = () => {
@@ -51,7 +51,8 @@ export default function ReceiptPage() {
       clientName: "",
       amount: "",
       category: "Advance Payment",
-      paymentNote: ""
+      description: "",
+      comments: ""
     });
     setIsModalOpen(true);
   };
@@ -67,7 +68,7 @@ export default function ReceiptPage() {
       <div className="flex justify-between items-end mb-8">
         <div>
           <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
-            <Receipt className="text-blue-600" size={32} />
+            < Receipt className="text-blue-600" size={32} />
             Payment Receipts
           </h1>
           <p className="text-slate-500 mt-1 font-medium">Generate and track customer payment receipts.</p>
@@ -87,7 +88,7 @@ export default function ReceiptPage() {
               <th className="px-8 py-5">Receipt No</th>
               <th className="px-8 py-5">Date</th>
               <th className="px-8 py-5">Client Name</th>
-              <th className="px-8 py-5">Category</th>
+              <th className="px-8 py-5">Category / Desc</th>
               <th className="px-8 py-5 text-right">Amount</th>
               <th className="px-8 py-5 text-right">Actions</th>
             </tr>
@@ -100,7 +101,7 @@ export default function ReceiptPage() {
                 <td className="px-8 py-5 font-bold">{r.clientName}</td>
                 <td className="px-8 py-5 text-xs uppercase font-black text-blue-600">
                   {r.category}
-                  {r.paymentNote && <span className="block text-[9px] text-slate-400 normal-case font-medium">{r.paymentNote}</span>}
+                  {r.description && <span className="block text-[9px] text-slate-400 normal-case font-medium">{r.description}</span>}
                 </td>
                 <td className="px-8 py-5 text-right font-black text-emerald-600">₹{parseFloat(r.amount).toLocaleString()}</td>
                 <td className="px-8 py-5 text-right">
@@ -144,6 +145,7 @@ export default function ReceiptPage() {
                     <option>Advance Payment</option>
                     <option>Partial Payment</option>
                     <option>Closing Payment</option>
+                    <option>Security Deposit</option>
                   </select>
                 </div>
                 <div>
@@ -162,9 +164,13 @@ export default function ReceiptPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Payment Note</label>
-                  <input required value={formData.paymentNote} onChange={e => setFormData({...formData, paymentNote: e.target.value})} placeholder="e.g. Master Bedroom Work" className="w-full p-3 border border-slate-100 rounded-xl text-sm font-bold" />
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Description</label>
+                  <input required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="e.g. Master Bedroom Work" className="w-full p-3 border border-slate-100 rounded-xl text-sm font-bold" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Comments (Optional)</label>
+                <input value={formData.comments} onChange={e => setFormData({...formData, comments: e.target.value})} placeholder="Any additional details..." className="w-full p-3 border border-slate-100 rounded-xl text-sm font-bold" />
               </div>
             </div>
             <div className="flex gap-2 mt-8">
@@ -193,7 +199,8 @@ export default function ReceiptPage() {
             <p>Received with thanks from <span className="font-black border-b-2 border-slate-200 px-4 inline-block min-w-[200px]">{formData.clientName}</span></p>
             <p>the sum of Rupees <span className="font-black border-b-2 border-slate-200 px-4 inline-block min-w-[150px]">₹ {parseFloat(formData.amount || 0).toLocaleString()}</span></p>
             <p>by <span className="font-black border-b-2 border-slate-200 px-4 inline-block">{formData.paymentMode}</span></p>
-            <p>towards <span className="font-black border-b-2 border-slate-200 px-4 inline-block">{formData.category} {formData.paymentNote ? `(${formData.paymentNote})` : ""}</span></p>
+            <p>towards <span className="font-black border-b-2 border-slate-200 px-4 inline-block">{formData.category} {formData.description ? `(${formData.description})` : ""}</span></p>
+            {formData.comments && <p className="text-sm text-slate-500 italic">Note: {formData.comments}</p>}
           </div>
 
           <div className="flex justify-between items-end mt-32">
