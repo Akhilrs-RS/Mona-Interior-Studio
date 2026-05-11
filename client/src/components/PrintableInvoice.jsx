@@ -24,11 +24,19 @@ const PrintableInvoice = forwardRef(({ data, docType }, ref) => {
       </div>
 
       {/* Bill To */}
-      <div className="mb-8">
-        <p className="font-bold text-slate-500 uppercase text-xs">Client Name:</p>
-        <p className="text-lg font-semibold border-b border-gray-100 pb-1">
-          {safeData.customer || "Cash Customer"}
-        </p>
+      <div className="grid grid-cols-2 gap-8 mb-8">
+        <div>
+          <p className="font-bold text-slate-500 uppercase text-[9px]">Client Name:</p>
+          <p className="text-lg font-semibold border-b border-gray-100 pb-1">
+            {safeData.customer || "Cash Customer"}
+          </p>
+          <p className="text-xs text-gray-500 mt-2 whitespace-pre-line">{safeData.address}</p>
+        </div>
+        <div>
+          <p className="font-bold text-slate-500 uppercase text-[9px]">Project Details:</p>
+          <p className="text-base font-bold text-blue-900">{safeData.projectTitle || "Interior Work"}</p>
+          <p className="text-xs text-gray-600 mt-1 italic">{safeData.workDescription}</p>
+        </div>
       </div>
 
       {/* Table */}

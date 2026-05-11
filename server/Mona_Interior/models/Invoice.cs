@@ -17,6 +17,9 @@ namespace Mona_Interior.models
 
         public string ClientAddress { get; set; } = string.Empty;
 
+        public string ProjectTitle { get; set; } = string.Empty;
+        public string WorkDescription { get; set; } = string.Empty;
+
         // Full items payload stored as JSON (matches BillingPage.jsx saveInvoice shape)
         [Column(TypeName = "longtext")]
         public string Items { get; set; } = "{}";

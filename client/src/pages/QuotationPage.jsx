@@ -21,6 +21,8 @@ export default function QuotationPage() {
   const [items, setItems] = useState([]);
   const [clientName, setClientName] = useState("");
   const [clientAddress, setClientAddress] = useState("");
+  const [projectTitle, setProjectTitle] = useState("");
+  const [workDescription, setWorkDescription] = useState("");
   const [billType, setBillType] = useState("GST"); // 'GST' | 'Non-GST'
 
   const [quoteNo, setQuoteNo] = useState("");
@@ -50,6 +52,8 @@ export default function QuotationPage() {
       setItems(d.items || []);
       setClientName(d.clientName || "");
       setClientAddress(d.clientAddress || "");
+      setProjectTitle(d.projectTitle || "");
+      setWorkDescription(d.workDescription || "");
       setBillType(d.billType || "GST");
       if(d.quoteNo) setQuoteNo(d.quoteNo);
     } else {
@@ -57,6 +61,8 @@ export default function QuotationPage() {
       setItems([]);
       setClientName("");
       setClientAddress("");
+      setProjectTitle("");
+      setWorkDescription("");
       setBillType("GST");
       const last = localStorage.getItem("lastQuoteNumber") || "100";
       setQuoteNo(`MI/QT/${parseInt(last) + 1}/26-27`);
@@ -70,11 +76,11 @@ export default function QuotationPage() {
       setSessions(prev => prev.map(s => s.id === activeSessionId ? {
         ...s,
         title: clientName || "New Quote",
-        data: { items, clientName, clientAddress, billType, quoteNo }
+        data: { items, clientName, clientAddress, projectTitle, workDescription, billType, quoteNo }
       } : s));
     }, 500);
     return () => clearTimeout(timer);
-  }, [items, clientName, clientAddress, billType, quoteNo, activeSessionId]);
+  }, [items, clientName, clientAddress, projectTitle, workDescription, billType, quoteNo, activeSessionId]);
 
   useEffect(() => {
     localStorage.setItem("quotation_sessions", JSON.stringify(sessions));
@@ -141,6 +147,8 @@ export default function QuotationPage() {
       quoteNo,
       clientName,
       clientAddress,
+      projectTitle,
+      workDescription,
       items,
       date: quoteDate,
       total: subTotal,
@@ -169,6 +177,8 @@ export default function QuotationPage() {
       quoteNo,
       clientName,
       clientAddress,
+      projectTitle,
+      workDescription,
       items,
       date: quoteDate,
       total: subTotal,
@@ -188,6 +198,8 @@ export default function QuotationPage() {
           convertQuote: {
             clientName,
             clientAddress,
+            projectTitle,
+            workDescription,
             items,
             billType,
           },
@@ -307,6 +319,27 @@ export default function QuotationPage() {
           <span className="text-sm font-black text-amber-800">
             ₹{subTotal.toLocaleString()}
           </span>
+        </div>
+      </div>
+
+      <div className="bg-amber-50 p-2 grid grid-cols-12 gap-2 border-b border-amber-200 items-end text-slate-600">
+        <div className="col-span-4">
+          <label className="block text-[10px] font-bold text-slate-500 uppercase">Project Title</label>
+          <input 
+            placeholder="e.g. 3BHK Apartment Interior" 
+            value={projectTitle}
+            onChange={(e) => setProjectTitle(e.target.value)}
+            className="w-full bg-white border border-amber-200 px-2 py-1 text-sm outline-none focus:border-amber-400 font-bold" 
+          />
+        </div>
+        <div className="col-span-8">
+          <label className="block text-[10px] font-bold text-slate-500 uppercase">Work Description</label>
+          <input 
+            placeholder="General scope of work summary..." 
+            value={workDescription}
+            onChange={(e) => setWorkDescription(e.target.value)}
+            className="w-full bg-white border border-amber-200 px-2 py-1 text-sm outline-none focus:border-amber-400" 
+          />
         </div>
       </div>
 
@@ -533,11 +566,10 @@ export default function QuotationPage() {
         </button>
       </div>
 
-      {/* Hidden Print */}
       <div className="opacity-0 fixed top-0 left-0 pointer-events-none">
         <PrintableQuotation
           ref={componentRef}
-          data={{ customer: clientName, address: clientAddress, items, quoteNo, date: quoteDate, billType }}
+          data={{ customer: clientName, address: clientAddress, projectTitle, workDescription, items, quoteNo, date: quoteDate, billType }}
         />
       </div>
     </div>

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Receipt,
   Search,
@@ -34,6 +35,7 @@ const OVERHEAD_CATEGORIES = [
 const INITIAL_EXPENSES = [];
 
 export default function ExpensePage() {
+  const location = useLocation();
   const [uiMode, setUiMode] = useState("Dashboard");
   
   // Bulk States
@@ -73,6 +75,14 @@ export default function ExpensePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expenseHistory, setExpenseHistory] = useState([]);
+
+  const isClientOnlyView = location.state?.view === "ClientOnly";
+
+  useEffect(() => {
+    if (isClientOnlyView) {
+      setActiveTab("Client");
+    }
+  }, [isClientOnlyView]);
 
   const loadExpenses = async () => {
     try {
@@ -117,6 +127,14 @@ export default function ExpensePage() {
     description: "",
     date: new Date().toISOString().split("T")[0],
   });
+
+  useEffect(() => {
+    if (location.state?.autoFill) {
+      const { name } = location.state.autoFill;
+      setNewExpense(prev => ({ ...prev, client: name, expenseType: "Client" }));
+      setIsModalOpen(true);
+    }
+  }, [location.state]);
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
@@ -168,12 +186,18 @@ export default function ExpensePage() {
 
   const searchFiltered = tabFiltered.filter((e) => {
     const q = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       e.client?.toLowerCase().includes(q) ||
       e.material?.toLowerCase().includes(q) ||
       e.category?.toLowerCase().includes(q) ||
       e.description?.toLowerCase().includes(q)
     );
+
+    if (isClientOnlyView && location.state?.autoFill?.name) {
+      return matchesSearch && e.client === location.state.autoFill.name;
+    }
+
+    return matchesSearch;
   });
 
   const totalClientCost = timeFiltered
@@ -186,6 +210,15 @@ export default function ExpensePage() {
 
   const TABS = ["All", "Client", "Overhead"];
 
+  useEffect(() => {
+    if (isClientOnlyView) {
+      setBulkExpenseType("Client");
+      if (location.state?.autoFill?.name) {
+        setBulkClient(location.state.autoFill.name);
+      }
+    }
+  }, [isClientOnlyView, location.state]);
+
   if (uiMode === "Bulk") {
     return (
       <div className="bg-gray-200 min-h-screen font-sans text-slate-800 flex flex-col">
@@ -196,10 +229,11 @@ export default function ExpensePage() {
             <select
               value={bulkExpenseType}
               onChange={(e) => setBulkExpenseType(e.target.value)}
-              className="w-full bg-white border border-indigo-200 px-2 py-1 text-sm outline-none focus:border-indigo-400 font-bold"
+              disabled={isClientOnlyView}
+              className={`w-full bg-white border border-indigo-200 px-2 py-1 text-sm outline-none focus:border-indigo-400 font-bold ${isClientOnlyView ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <option>Client</option>
-              <option>Overhead</option>
+              {!isClientOnlyView && <option>Overhead</option>}
             </select>
           </div>
           <div className="col-span-2">
@@ -353,10 +387,12 @@ export default function ExpensePage() {
         <div>
           <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
             <Receipt className="text-indigo-600" size={32} />
-            Expense Management
+            {isClientOnlyView ? `Project Expenses: ${location.state.autoFill?.name}` : 'Utilities Management'}
           </h1>
           <p className="text-slate-500 mt-1 font-medium">
-            Track client material costs &amp; business overhead separately.
+            {isClientOnlyView 
+              ? `Tracking all material and service costs for this work order.` 
+              : 'Track client material costs & business overhead separately.'}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -385,19 +421,19 @@ export default function ExpensePage() {
             onClick={() => setIsModalOpen(true)}
             className="bg-slate-900 hover:bg-slate-800 text-white h-11 px-6 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg active:scale-95"
           >
-            <Plus size={18} /> Log Expense
+            <Plus size={18} /> Log Utility
           </button>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
-        <div className="bg-slate-900 text-white p-7 rounded-3xl shadow-xl">
+        <div className={`bg-slate-900 text-white p-7 rounded-3xl shadow-xl ${isClientOnlyView ? 'lg:col-span-1' : ''}`}>
           <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2">
-            Total Expenses
+            Total {isClientOnlyView ? 'Project' : 'Utilities'}
           </p>
           <h2 className="text-4xl font-black tracking-tighter">
-            ₹{grandTotal.toLocaleString()}
+            ₹{(isClientOnlyView ? totalClientCost : grandTotal).toLocaleString()}
           </h2>
           <div className="mt-3 flex items-center gap-2 text-slate-400 text-xs font-bold">
             <Layers size={14} />
@@ -405,7 +441,7 @@ export default function ExpensePage() {
           </div>
         </div>
 
-        <div className="bg-white p-7 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div className={`bg-white p-7 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between ${isClientOnlyView ? 'lg:col-span-2' : ''}`}>
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
               Client Expenses
@@ -414,7 +450,7 @@ export default function ExpensePage() {
               ₹{totalClientCost.toLocaleString()}
             </h2>
             <p className="text-xs text-slate-400 mt-1 font-medium">
-              Materials &amp; procurement
+              Materials &amp; procurement {isClientOnlyView && `for ${location.state.autoFill?.name}`}
             </p>
           </div>
           <div className="p-4 bg-indigo-50 rounded-3xl text-indigo-500">
@@ -422,22 +458,24 @@ export default function ExpensePage() {
           </div>
         </div>
 
-        <div className="bg-white p-7 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-              Overhead Expenses
-            </p>
-            <h2 className="text-3xl font-black text-amber-600">
-              ₹{totalOverheadCost.toLocaleString()}
-            </h2>
-            <p className="text-xs text-slate-400 mt-1 font-medium">
-              Rent, utilities &amp; ops
-            </p>
+        {!isClientOnlyView && (
+          <div className="bg-white p-7 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                Overhead Expenses
+              </p>
+              <h2 className="text-3xl font-black text-amber-600">
+                ₹{totalOverheadCost.toLocaleString()}
+              </h2>
+              <p className="text-xs text-slate-400 mt-1 font-medium">
+                Rent, utilities &amp; ops
+              </p>
+            </div>
+            <div className="p-4 bg-amber-50 rounded-3xl text-amber-500">
+              <Building2 size={28} />
+            </div>
           </div>
-          <div className="p-4 bg-amber-50 rounded-3xl text-amber-500">
-            <Building2 size={28} />
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Table Section */}
@@ -446,7 +484,7 @@ export default function ExpensePage() {
         <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           {/* Tabs */}
           <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
-            {TABS.map((tab) => (
+            {TABS.filter(t => !isClientOnlyView || t !== "Overhead").map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -594,7 +632,7 @@ export default function ExpensePage() {
             </button>
 
             <h2 className="text-3xl font-black mb-2 text-slate-900 tracking-tighter">
-              Log New Expense
+              Log New Utility
             </h2>
             <p className="text-slate-400 text-sm mb-8 font-medium">
               Choose whether this is a client project cost or a business
@@ -603,7 +641,7 @@ export default function ExpensePage() {
 
             {/* Expense Type Toggle */}
             <div className="flex gap-2 mb-8 bg-slate-100 p-1.5 rounded-2xl">
-              {["Client", "Overhead"].map((type) => (
+              {["Client", "Overhead"].filter(t => !isClientOnlyView || t === "Client").map((type) => (
                 <button
                   key={type}
                   type="button"
@@ -801,7 +839,7 @@ export default function ExpensePage() {
                     : "bg-amber-500 hover:bg-amber-600"
                 }`}
               >
-                Save Expense Entry
+                Save Utility Entry
               </button>
             </div>
           </form>

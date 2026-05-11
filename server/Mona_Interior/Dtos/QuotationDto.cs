@@ -7,6 +7,8 @@ namespace Mona_Interior.Dtos
         public string? Id { get; set; }
         public string ClientName { get; set; } = string.Empty;
         public string ClientAddress { get; set; } = string.Empty;
+        public string ProjectTitle { get; set; } = string.Empty;
+        public string WorkDescription { get; set; } = string.Empty;
         public string Date { get; set; } = string.Empty;
         public string BillType { get; set; } = "GST";
         // Items come as raw JSON from frontend

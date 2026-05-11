@@ -11,6 +11,7 @@ namespace Mona_Interior.models
         public string Name { get; set; } = string.Empty;
 
         public string ClientName { get; set; } = string.Empty;
+        public string AssignedTeam { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
 
         // "Pre-Construction" | "In Progress" | "Completed" | "Maintenance"
@@ -22,6 +23,8 @@ namespace Mona_Interior.models
         public decimal Budget { get; set; }
 
         public string Description { get; set; } = string.Empty;
+
+        public bool IsArchived { get; set; } = false;
 
         // JSON array for work history entries
         [Column(TypeName = "longtext")]

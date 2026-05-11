@@ -23,6 +23,8 @@ namespace Mona_Interior.Controllers
                 id = q.Id.ToString(),
                 clientName = q.ClientName,
                 clientAddress = q.ClientAddress,
+                projectTitle = q.ProjectTitle,
+                workDescription = q.WorkDescription,
                 date = q.Date,
                 billType = q.BillType,
                 items = JsonSerializer.Deserialize<JsonElement>(q.Items ?? "[]"),
@@ -39,6 +41,8 @@ namespace Mona_Interior.Controllers
             {
                 ClientName = dto.ClientName,
                 ClientAddress = dto.ClientAddress,
+                ProjectTitle = dto.ProjectTitle,
+                WorkDescription = dto.WorkDescription,
                 Date = string.IsNullOrEmpty(dto.Date) ? DateTime.Now.ToString("yyyy-MM-dd") : dto.Date,
                 BillType = dto.BillType,
                 Items = dto.Items.HasValue ? dto.Items.Value.GetRawText() : "[]",
@@ -58,6 +62,8 @@ namespace Mona_Interior.Controllers
 
             q.ClientName = dto.ClientName;
             q.ClientAddress = dto.ClientAddress;
+            q.ProjectTitle = dto.ProjectTitle;
+            q.WorkDescription = dto.WorkDescription;
             q.Date = dto.Date;
             q.BillType = dto.BillType;
             q.Items = dto.Items.HasValue ? dto.Items.Value.GetRawText() : q.Items;

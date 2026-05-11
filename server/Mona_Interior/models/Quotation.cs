@@ -12,6 +12,9 @@ namespace Mona_Interior.models
 
         public string ClientAddress { get; set; } = string.Empty;
 
+        public string ProjectTitle { get; set; } = string.Empty;
+        public string WorkDescription { get; set; } = string.Empty;
+
         public string Date { get; set; } = string.Empty;
 
         // "GST" | "Non-GST"

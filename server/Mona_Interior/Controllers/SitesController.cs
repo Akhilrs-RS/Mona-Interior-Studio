@@ -23,11 +23,13 @@ namespace Mona_Interior.Controllers
                 id = s.Id,
                 name = s.Name,
                 clientName = s.ClientName,
+                assignedTeam = s.AssignedTeam,
                 address = s.Address,
                 status = s.Status,
                 startDate = s.StartDate,
                 budget = s.Budget,
                 description = s.Description,
+                isArchived = s.IsArchived,
                 workHistory = string.IsNullOrEmpty(s.WorkHistory)
                     ? (object)"[]"
                     : JsonSerializer.Deserialize<JsonElement>(s.WorkHistory)
@@ -42,11 +44,13 @@ namespace Mona_Interior.Controllers
             {
                 Name = dto.Name,
                 ClientName = dto.ClientName,
+                AssignedTeam = dto.AssignedTeam,
                 Address = dto.Address,
                 Status = dto.Status,
                 StartDate = dto.StartDate,
                 Budget = dto.Budget,
                 Description = dto.Description,
+                IsArchived = dto.IsArchived,
                 WorkHistory = dto.WorkHistory.HasValue ? dto.WorkHistory.Value.GetRawText() : "[]"
             };
             _db.Sites.Add(site);
@@ -62,11 +66,13 @@ namespace Mona_Interior.Controllers
             if (site == null) return NotFound();
             site.Name = dto.Name;
             site.ClientName = dto.ClientName;
+            site.AssignedTeam = dto.AssignedTeam;
             site.Address = dto.Address;
             site.Status = dto.Status;
             site.StartDate = dto.StartDate;
             site.Budget = dto.Budget;
             site.Description = dto.Description;
+            site.IsArchived = dto.IsArchived;
             if (dto.WorkHistory.HasValue)
                 site.WorkHistory = dto.WorkHistory.Value.GetRawText();
             await _db.SaveChangesAsync();

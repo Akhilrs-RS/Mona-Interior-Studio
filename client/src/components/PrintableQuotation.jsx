@@ -50,6 +50,12 @@ const PrintableQuotation = forwardRef(({ data }, ref) => {
         </div>
       </div>
 
+      <div className="mb-8 bg-amber-50 p-4 rounded-xl border border-amber-100">
+        <p className="font-bold text-[10px] uppercase text-amber-700 mb-1">Project Proposal for:</p>
+        <h3 className="text-lg font-black text-slate-900 uppercase">{safeData.projectTitle || "Interior Renovation"}</h3>
+        <p className="text-xs text-slate-600 mt-1 italic font-medium">{safeData.workDescription}</p>
+      </div>
+
       <p className="font-bold mb-2 uppercase text-xs tracking-wider text-gray-500">Itemized Work Details:</p>
 
       {/* Table */}

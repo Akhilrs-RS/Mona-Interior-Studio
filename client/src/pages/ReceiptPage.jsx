@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useReactToPrint } from "react-to-print";
+import { useLocation } from "react-router-dom";
 import { Receipt, Search, Printer, Plus, User, Calendar, IndianRupee, Trash2 } from "lucide-react";
 
 export default function ReceiptPage() {
+  const location = useLocation();
   const [receipts, setReceipts] = useState(() => {
     const saved = localStorage.getItem("payment_receipts");
     return saved ? JSON.parse(saved) : [];
@@ -23,6 +25,23 @@ export default function ReceiptPage() {
   useEffect(() => {
     localStorage.setItem("payment_receipts", JSON.stringify(receipts));
   }, [receipts]);
+
+  useEffect(() => {
+    if (location.state?.autoFill) {
+      const { name, desc } = location.state.autoFill;
+      const lastNum = localStorage.getItem("lastReceiptNumber") || "1000";
+      const newNum = parseInt(lastNum) + 1;
+      const yearSuffix = "26-27";
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        clientName: name, 
+        description: desc,
+        receiptNo: `MI/RCP/${newNum}/${yearSuffix}`
+      }));
+      setIsModalOpen(true);
+    }
+  }, [location.state]);
 
   const componentRef = useRef();
   const handlePrint = useReactToPrint({ contentRef: componentRef });

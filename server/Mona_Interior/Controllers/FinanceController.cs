@@ -27,6 +27,8 @@ namespace Mona_Interior.Controllers
                 invoiceDate = i.InvoiceDate,
                 clientName = i.ClientName,
                 clientAddress = i.ClientAddress,
+                projectTitle = i.ProjectTitle,
+                workDescription = i.WorkDescription,
                 items = JsonSerializer.Deserialize<JsonElement>(i.Items ?? "{}"),
                 total = i.Total,
                 billType = i.BillType,
@@ -46,6 +48,8 @@ namespace Mona_Interior.Controllers
                 InvoiceDate = dto.InvoiceDate,
                 ClientName = dto.ClientName,
                 ClientAddress = dto.ClientAddress,
+                ProjectTitle = dto.ProjectTitle,
+                WorkDescription = dto.WorkDescription,
                 Items = dto.Items.HasValue ? dto.Items.Value.GetRawText() : "{}",
                 Total = dto.Total,
                 BillType = dto.BillType,
@@ -68,6 +72,8 @@ namespace Mona_Interior.Controllers
             inv.InvoiceDate = dto.InvoiceDate;
             inv.ClientName = dto.ClientName;
             inv.ClientAddress = dto.ClientAddress;
+            inv.ProjectTitle = dto.ProjectTitle;
+            inv.WorkDescription = dto.WorkDescription;
             inv.Items = dto.Items.HasValue ? dto.Items.Value.GetRawText() : inv.Items;
             inv.Total = dto.Total;
             inv.BillType = dto.BillType;

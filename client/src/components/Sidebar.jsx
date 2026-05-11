@@ -53,11 +53,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       name: "Payment Receipts",
       icon: <Receipt size={20} />,
     },
-    { path: "/expenses", name: "Expenses", icon: <Receipt size={20} /> },
+    { path: "/expenses", name: "Utilities", icon: <Receipt size={20} /> },
     { path: "/accounts", name: "Accounts", icon: <Landmark size={20} /> },
 
     { type: "header", name: "PROJECTS" },
-    { path: "/sites", name: "Sites Profiles", icon: <MapPin size={20} /> },
+    { path: "/sites", name: "Work Orders", icon: <MapPin size={20} /> },
 
     { type: "header", name: "HUMAN RESOURCES" },
     { path: "/employees", name: "Employees", icon: <Briefcase size={20} /> },
