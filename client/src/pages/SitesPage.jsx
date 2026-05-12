@@ -68,7 +68,7 @@ export default function SitesPage() {
     const matchStatus = statusFilter === "All" || s.status === statusFilter;
     const matchSearch =
       s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.location && s.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (s.client && s.client.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchStatus && matchSearch;
   });
@@ -319,7 +319,7 @@ export default function SitesPage() {
                         <MapPin size={12} /> {site.location}
                       </div>
                       <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold mt-2 uppercase">
-                        <User size={10} /> {site.client || "No Client"}
+                        <User size={10} /> {site.clientName || site.client || "No Client"}
                       </div>
                     </button>
                   ))}
@@ -358,6 +358,14 @@ export default function SitesPage() {
                           <User size={16} /> <span className="text-slate-400">Client:</span> {selectedSite.clientName || "N/A"}
                         </div>
                       </div>
+                      {selectedSite.description && (
+                        <div className="mt-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 max-w-3xl">
+                          <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1">Project Description</h4>
+                          <p className="text-slate-300 text-sm font-medium leading-relaxed">
+                            {selectedSite.description}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-3">
                       <select
@@ -382,7 +390,7 @@ export default function SitesPage() {
                     <div className="flex items-center gap-2">
                       <Users size={16} />
                       <span className="font-bold text-slate-300">Team Assigned:</span>{" "}
-                      {selectedSite.assignedTeam || "Pending Assignment"}
+                      <span className="text-indigo-400 font-black uppercase tracking-wider">{selectedSite.assignedTeam || selectedSite.team || "Pending Assignment"}</span>
                     </div>
                     <div className="flex items-center gap-4">
                        <div className="text-xs font-bold">
