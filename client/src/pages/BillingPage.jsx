@@ -45,7 +45,6 @@ export default function BillingPage() {
   const [savedInvoices, setSavedInvoices] = useState([]);
 
   const [newItem, setNewItem] = useState({
-    work: "",
     unit: "Sq.Ft",
     area: "",
     price: "",
@@ -214,11 +213,12 @@ export default function BillingPage() {
   useEffect(() => {
     // ── Handle: Auto-fill from Work Order ────────────────────────
     if (location.state?.autoFill) {
-      const { name, address, desc } = location.state.autoFill;
-      setClientName(name);
-      setClientAddress(address);
-      setProjectTitle(name);
-      setWorkDescription(desc || "");
+      const { clientName, projectTitle, address, desc } =
+        location.state.autoFill;
+      if (clientName) setClientName(clientName);
+      if (address) setClientAddress(address);
+      if (projectTitle) setProjectTitle(projectTitle);
+      if (desc !== undefined) setWorkDescription(desc || "");
     }
 
     const lastNum = localStorage.getItem("lastInvoiceNumber") || "1000";
@@ -320,7 +320,7 @@ export default function BillingPage() {
 
   const addItem = (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!newItem.work || !newItem.price) return;
+    if (!newItem.price) return;
     const taxableAmount =
       parseFloat(newItem.area || 1) * parseFloat(newItem.price);
     const effectiveGST =
@@ -339,7 +339,6 @@ export default function BillingPage() {
       },
     ]);
     setNewItem({
-      work: "",
       unit: "Sq.Ft",
       area: "",
       price: "",
@@ -784,9 +783,6 @@ export default function BillingPage() {
               <th className="px-2 py-1 border-r border-gray-300 text-center w-10">
                 S#
               </th>
-              <th className="px-2 py-1 border-r border-gray-300 text-left">
-                Work Description
-              </th>
               <th className="px-2 py-1 border-r border-gray-300 text-center w-16">
                 Unit
               </th>
@@ -826,9 +822,6 @@ export default function BillingPage() {
                 <td className="px-2 py-1 border-r border-gray-200 text-center font-bold text-gray-400">
                   {idx + 1}
                 </td>
-                <td className="px-2 py-1 border-r border-gray-200 uppercase font-medium">
-                  {item.work}
-                </td>
                 <td className="px-2 py-1 border-r border-gray-200 text-center text-gray-500">
                   {item.unit}
                 </td>
@@ -859,7 +852,7 @@ export default function BillingPage() {
             {items.length === 0 && (
               <tr>
                 <td
-                  colSpan="10"
+                  colSpan="9"
                   className="py-20 text-center text-gray-300 font-bold uppercase tracking-widest italic"
                 >
                   No work details added to invoice

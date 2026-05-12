@@ -220,14 +220,15 @@ export default function SitesPage() {
   };
 
   const handleGoToBilling = () => {
-    navigate("/billing", { 
-      state: { 
-        autoFill: { 
-          name: selectedSite.clientName, 
-          address: selectedSite.address, 
-          desc: `Project: ${selectedSite.name}` 
-        } 
-      } 
+    navigate("/billing", {
+      state: {
+        autoFill: {
+          clientName: selectedSite.clientName,
+          projectTitle: selectedSite.name,
+          address: selectedSite.address,
+          desc: "" 
+        }
+      }
     });
   };
 
