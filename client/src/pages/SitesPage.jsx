@@ -45,17 +45,21 @@ export default function SitesPage() {
     try {
       const res = await fetch('http://localhost:5000/api/sites');
       const data = await res.json();
-      // Map backend fields to frontend usage
-      setSites(data.map(s => ({ 
-        ...s, 
-        location: s.address, 
-        team: s.assignedTeam, 
+      
+      // Clean mapping: use backend names as primary state properties
+      const mapped = data.map(s => ({
+        ...s,
+        // Ensure legacy field usage in other parts of the app doesn't break
+        location: s.address,
         client: s.clientName,
-        history: Array.isArray(s.workHistory) ? s.workHistory : [], 
-        media: s.media || [], 
+        team: s.assignedTeam,
+        history: Array.isArray(s.workHistory) ? s.workHistory : [],
+        media: s.media || [],
         maintenance: s.maintenance || { required: false, frequency: "", lastDone: "", nextDue: "" }
-      })));
-    } catch(err) { console.error(err); }
+      }));
+      
+      setSites(mapped);
+    } catch(err) { console.error("Load Sites Error:", err); }
   };
 
   useEffect(() => {
@@ -66,10 +70,11 @@ export default function SitesPage() {
 
   const filteredSites = sites.filter((s) => {
     const matchStatus = statusFilter === "All" || s.status === statusFilter;
+    const term = searchTerm.toLowerCase();
     const matchSearch =
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.location && s.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (s.client && s.client.toLowerCase().includes(searchTerm.toLowerCase()));
+      (s.name && s.name.toLowerCase().includes(term)) ||
+      (s.address && s.address.toLowerCase().includes(term)) ||
+      (s.clientName && s.clientName.toLowerCase().includes(term));
     return matchStatus && matchSearch;
   });
 
@@ -78,6 +83,7 @@ export default function SitesPage() {
     if (status === "Completed") return "bg-emerald-100 text-emerald-700 border-emerald-200";
     if (status === "Currently working" || status === "In Progress") return "bg-indigo-100 text-indigo-700 border-indigo-200";
     if (status === "Pre-Construction" || status === "Yet to work") return "bg-amber-100 text-amber-700 border-amber-200";
+    if (status === "Maintenance") return "bg-rose-100 text-rose-700 border-rose-200";
     return "bg-slate-100 text-slate-700 border-slate-200";
   };
 
@@ -86,13 +92,14 @@ export default function SitesPage() {
     const s = sites.find(s => s.id === siteId);
     if (!s) return;
     
+    // Create payload using backend property names
     const payload = { 
       name: key === "name" ? value : s.name, 
-      address: key === "location" ? value : s.address, 
-      clientName: key === "client" ? value : s.clientName, 
-      assignedTeam: key === "team" ? value : s.assignedTeam,
+      address: key === "address" ? value : s.address, 
+      clientName: key === "clientName" ? value : s.clientName, 
+      assignedTeam: key === "assignedTeam" ? value : s.assignedTeam,
       status: key === "status" ? value : s.status,
-      workHistory: key === "history" ? value : s.workHistory,
+      workHistory: key === "workHistory" ? value : s.workHistory,
       startDate: key === "startDate" ? value : s.startDate,
       budget: key === "budget" ? parseFloat(value) : s.budget,
       description: key === "description" ? value : s.description,
@@ -105,13 +112,14 @@ export default function SitesPage() {
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(payload)
       });
-      if (res.ok) loadSites();
-    } catch (e) { console.error(e); }
+      if (res.ok) await loadSites();
+    } catch (e) { console.error("Update Property Error:", e); }
   };
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    
     const payload = {
       name: fd.get("name"),
       clientName: fd.get("clientName"),
@@ -131,23 +139,17 @@ export default function SitesPage() {
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(payload)
       });
+      
       if (res.ok) {
-        loadSites();
+        await loadSites();
         setIsEditModalOpen(false);
+      } else {
+        alert("Failed to update project details.");
       }
-    } catch (e) { console.error(e); }
-  };
-
-  const handleMaintenanceUpdate = (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const maintenance = {
-      required: fd.get("required") === "on",
-      frequency: fd.get("frequency"),
-      lastDone: fd.get("lastDone"),
-      nextDue: fd.get("nextDue"),
-    };
-    alert("Maintenance schedule updated locally.");
+    } catch (e) { 
+      console.error("Edit Submit Error:", e); 
+      alert("Error connecting to server.");
+    }
   };
 
   const handleCreateSite = async (e) => {
@@ -155,9 +157,9 @@ export default function SitesPage() {
     const fd = new FormData(e.target);
     const newSite = { 
       name: fd.get("name"), 
-      address: fd.get("location"), 
-      clientName: fd.get("client"), 
-      assignedTeam: fd.get("team"),
+      address: fd.get("address"), 
+      clientName: fd.get("clientName"), 
+      assignedTeam: fd.get("assignedTeam"),
       status: fd.get("status"), 
       startDate: new Date().toISOString().split("T")[0], 
       budget: 0, 
@@ -165,25 +167,20 @@ export default function SitesPage() {
       workHistory: [] 
     };
     try {
-      await fetch('http://localhost:5000/api/sites', {
+      const res = await fetch('http://localhost:5000/api/sites', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(newSite)
       });
-      loadSites();
-      setIsSiteModalOpen(false);
-    } catch (e) { console.error(e); }
+      if (res.ok) {
+        await loadSites();
+        setIsSiteModalOpen(false);
+      }
+    } catch (e) { console.error("Create Site Error:", e); }
   };
 
   const handleAddMedia = async (e) => {
     e.preventDefault();
-    const fd = new FormData(e.target);
-    const newMedia = {
-      id: `m-${Date.now()}`,
-      type: fd.get("type"),
-      url: fd.get("url"),
-      category: fd.get("category"),
-    };
     alert("Media added (Mock).");
     setIsMediaModalOpen(false);
   };
@@ -199,7 +196,7 @@ export default function SitesPage() {
     const s = sites.find(s => s.id === selectedSiteId);
     if (!s) return;
     const updatedHistory = [newHistory, ...s.history];
-    updateSiteProperty(selectedSiteId, "history", updatedHistory);
+    await updateSiteProperty(selectedSiteId, "workHistory", updatedHistory);
     setIsHistoryModalOpen(false);
   };
 
@@ -239,7 +236,7 @@ export default function SitesPage() {
   };
 
   return (
-    <div className="bg-slate-100 min-h-screen font-sans">
+    <div className="bg-slate-100 min-h-screen font-sans text-slate-900">
       <div className="p-8">
         <div className="flex justify-between items-end mb-8">
           <div>
@@ -275,7 +272,7 @@ export default function SitesPage() {
                 />
               </div>
               <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-                {["All", "Pre-Construction", "In Progress", "Completed"].map((status) => (
+                {["All", "Pre-Construction", "In Progress", "Completed", "Maintenance"].map((status) => (
                   <button
                     key={status}
                     onClick={() => setStatusFilter(status)}
@@ -316,10 +313,10 @@ export default function SitesPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                        <MapPin size={12} /> {site.location}
+                        <MapPin size={12} /> {site.address}
                       </div>
                       <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold mt-2 uppercase">
-                        <User size={10} /> {site.clientName || site.client || "No Client"}
+                        <User size={10} /> {site.clientName || "No Client"}
                       </div>
                     </button>
                   ))}
@@ -352,7 +349,7 @@ export default function SitesPage() {
                       </div>
                       <div className="flex flex-wrap gap-4 mt-3">
                         <div className="flex items-center gap-2 text-indigo-300 text-sm font-medium">
-                          <MapPin size={16} /> {selectedSite.location}
+                          <MapPin size={16} /> {selectedSite.address}
                         </div>
                         <div className="flex items-center gap-2 text-indigo-300 text-sm font-medium border-l border-slate-700 pl-4">
                           <User size={16} /> <span className="text-slate-400">Client:</span> {selectedSite.clientName || "N/A"}
@@ -360,9 +357,9 @@ export default function SitesPage() {
                       </div>
                       {selectedSite.description && (
                         <div className="mt-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 max-w-3xl">
-                          <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1">Project Description</h4>
-                          <p className="text-slate-300 text-sm font-medium leading-relaxed">
-                            {selectedSite.description}
+                          <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1">Project Overview</h4>
+                          <p className="text-slate-300 text-sm font-medium leading-relaxed italic">
+                            "{selectedSite.description}"
                           </p>
                         </div>
                       )}
@@ -390,7 +387,9 @@ export default function SitesPage() {
                     <div className="flex items-center gap-2">
                       <Users size={16} />
                       <span className="font-bold text-slate-300">Team Assigned:</span>{" "}
-                      <span className="text-indigo-400 font-black uppercase tracking-wider">{selectedSite.assignedTeam || selectedSite.team || "Pending Assignment"}</span>
+                      <span className="text-indigo-400 font-black uppercase tracking-wider">
+                        {selectedSite.assignedTeam || "No Team Members Assigned"}
+                      </span>
                     </div>
                     <div className="flex items-center gap-4">
                        <div className="text-xs font-bold">
@@ -576,7 +575,7 @@ export default function SitesPage() {
                           <h3 className="text-lg font-black tracking-tight">Periodic Maintenance Protocol</h3>
                         </div>
                         
-                        <form onSubmit={handleMaintenanceUpdate} className="space-y-6">
+                        <form className="space-y-6">
                           <label className="flex items-center gap-3 cursor-pointer">
                             <input
                               type="checkbox"
@@ -625,7 +624,7 @@ export default function SitesPage() {
                           </div>
 
                           <div className="pt-4 border-t border-amber-200/50">
-                            <button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-amber-200 transition">
+                            <button type="button" onClick={() => alert("Maintenance updated locally.")} className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-amber-200 transition">
                               Save Maintenance Setup
                             </button>
                           </div>
@@ -664,11 +663,11 @@ export default function SitesPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Client Name</label>
-                <input required name="client" placeholder="e.g. John Doe" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                <input required name="clientName" placeholder="e.g. John Doe" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Site Address</label>
-                <input required name="location" placeholder="e.g. Kochi, Kerala" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                <input required name="address" placeholder="e.g. Kochi, Kerala" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -681,7 +680,7 @@ export default function SitesPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Assigned Team</label>
-                  <input name="team" placeholder="Lead + Staff" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                  <input name="assignedTeam" placeholder="Lead + Staff" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
                 </div>
               </div>
               <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black uppercase tracking-widest mt-4 shadow-lg">Save Work Order</button>
