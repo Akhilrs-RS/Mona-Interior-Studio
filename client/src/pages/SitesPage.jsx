@@ -21,6 +21,7 @@ import {
   Edit,
   Briefcase,
   User,
+  Calendar,
 } from "lucide-react";
 
 export default function SitesPage() {
@@ -74,7 +75,8 @@ export default function SitesPage() {
     const matchSearch =
       (s.name && s.name.toLowerCase().includes(term)) ||
       (s.address && s.address.toLowerCase().includes(term)) ||
-      (s.clientName && s.clientName.toLowerCase().includes(term));
+      (s.clientName && s.clientName.toLowerCase().includes(term)) ||
+      (s.assignedTeam && s.assignedTeam.toLowerCase().includes(term));
     return matchStatus && matchSearch;
   });
 
@@ -92,7 +94,7 @@ export default function SitesPage() {
     const s = sites.find(s => s.id === siteId);
     if (!s) return;
     
-    // Create payload using backend property names
+    // Construct full payload using camelCase (ASP.NET Core default)
     const payload = { 
       name: key === "name" ? value : s.name, 
       address: key === "address" ? value : s.address, 
@@ -130,7 +132,7 @@ export default function SitesPage() {
       budget: parseFloat(fd.get("budget") || 0),
       description: fd.get("description"),
       isArchived: selectedSite.isArchived,
-      workHistory: selectedSite.workHistory 
+      workHistory: selectedSite.workHistory // Preserving original history
     };
 
     try {
@@ -144,7 +146,8 @@ export default function SitesPage() {
         await loadSites();
         setIsEditModalOpen(false);
       } else {
-        alert("Failed to update project details.");
+        const errorText = await res.text();
+        alert("Failed to update project details: " + errorText);
       }
     } catch (e) { 
       console.error("Edit Submit Error:", e); 
@@ -155,28 +158,44 @@ export default function SitesPage() {
   const handleCreateSite = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const newSite = { 
-      name: fd.get("name"), 
-      address: fd.get("address"), 
-      clientName: fd.get("clientName"), 
-      assignedTeam: fd.get("assignedTeam"),
-      status: fd.get("status"), 
-      startDate: new Date().toISOString().split("T")[0], 
-      budget: 0, 
-      description: "", 
-      workHistory: [] 
+    
+    // Using camelCase and ensuring NO null values for required DB columns
+    const newSitePayload = { 
+      name: fd.get("name") || "", 
+      address: fd.get("address") || "", 
+      clientName: fd.get("clientName") || "", 
+      assignedTeam: fd.get("assignedTeam") || "",
+      status: fd.get("status") || "Pre-Construction", 
+      startDate: fd.get("startDate") || new Date().toISOString().split("T")[0], 
+      budget: parseFloat(fd.get("budget") || 0), 
+      description: fd.get("description") || "", 
+      isArchived: false,
+      workHistory: [] // Sending empty array instead of null to satisfy database
     };
+
     try {
+      console.log("Creating Work Order. Payload:", newSitePayload);
       const res = await fetch('http://localhost:5000/api/sites', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(newSite)
+        body: JSON.stringify(newSitePayload)
       });
+      
       if (res.ok) {
+        const createdData = await res.json();
         await loadSites();
         setIsSiteModalOpen(false);
+        if (createdData.id) setSelectedSiteId(createdData.id);
+        alert("Work order created successfully!");
+      } else {
+        const errorBody = await res.text();
+        console.error("Server 500 Error Body:", errorBody);
+        alert(`Server Error (${res.status}). Ensure all fields are filled. Check console for details.`);
       }
-    } catch (e) { console.error("Create Site Error:", e); }
+    } catch (e) { 
+      console.error("Fetch Connection Error:", e); 
+      alert("Failed to connect to backend server. Ensure it is running on port 5000.");
+    }
   };
 
   const handleAddMedia = async (e) => {
@@ -265,7 +284,7 @@ export default function SitesPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                 <input
                   type="text"
-                  placeholder="Search site, client or location..."
+                  placeholder="Search site, client, team or location..."
                   className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 font-medium"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -315,8 +334,15 @@ export default function SitesPage() {
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                         <MapPin size={12} /> {site.address}
                       </div>
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold mt-2 uppercase">
-                        <User size={10} /> {site.clientName || "No Client"}
+                      <div className="flex flex-col gap-1 mt-2">
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase">
+                          <User size={10} /> {site.clientName || "No Client"}
+                        </div>
+                        {site.assignedTeam && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-indigo-400 font-bold uppercase">
+                            <Users size={10} /> {site.assignedTeam}
+                          </div>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -575,7 +601,7 @@ export default function SitesPage() {
                           <h3 className="text-lg font-black tracking-tight">Periodic Maintenance Protocol</h3>
                         </div>
                         
-                        <form className="space-y-6">
+                        <div className="space-y-6">
                           <label className="flex items-center gap-3 cursor-pointer">
                             <input
                               type="checkbox"
@@ -628,7 +654,7 @@ export default function SitesPage() {
                               Save Maintenance Setup
                             </button>
                           </div>
-                        </form>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -657,19 +683,23 @@ export default function SitesPage() {
               <button type="button" onClick={() => setIsSiteModalOpen(false)} className="hover:text-slate-300"><X/></button>
             </div>
             <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Project Name</label>
-                <input required name="name" placeholder="e.g. Modern Villa Interior" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Client Name</label>
-                <input required name="clientName" placeholder="e.g. John Doe" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Site Address</label>
-                <input required name="address" placeholder="e.g. Kochi, Kerala" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Project Name</label>
+                  <input required name="name" placeholder="e.g. Modern Villa Interior" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Client Name</label>
+                  <input required name="clientName" placeholder="e.g. John Doe" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Assigned Team</label>
+                  <input name="assignedTeam" placeholder="Lead + Staff" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Site Address</label>
+                  <input required name="address" placeholder="e.g. Kochi, Kerala" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Initial Status</label>
                   <select name="status" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium">
@@ -679,8 +709,16 @@ export default function SitesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Assigned Team</label>
-                  <input name="assignedTeam" placeholder="Lead + Staff" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1"><Calendar size={12}/> Start Date</label>
+                  <input required type="date" name="startDate" defaultValue={new Date().toISOString().split("T")[0]} className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1"><IndianRupee size={12}/> Est. Budget (₹)</label>
+                  <input required type="number" name="budget" placeholder="0" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                </div>
+                <div>
+                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
+                   <input name="description" placeholder="Short scope..." className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
                 </div>
               </div>
               <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black uppercase tracking-widest mt-4 shadow-lg">Save Work Order</button>
