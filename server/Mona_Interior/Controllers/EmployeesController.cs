@@ -27,7 +27,13 @@ namespace Mona_Interior.Controllers
                 email = e.Email,
                 salary = e.Salary,
                 joinDate = e.JoinDate,
-                status = e.Status
+                status = e.Status,
+                address = e.Address,
+                advanceBalance = e.AdvanceBalance,
+                bankDetails = e.BankDetails,
+                govId = e.GovId,
+                salaryType = e.SalaryType,
+                workerId = e.WorkerId
             });
             return Ok(result);
         }
@@ -48,7 +54,13 @@ namespace Mona_Interior.Controllers
                 email = e.Email,
                 salary = e.Salary,
                 joinDate = e.JoinDate,
-                status = e.Status
+                status = e.Status,
+                address = e.Address,
+                advanceBalance = e.AdvanceBalance,
+                bankDetails = e.BankDetails,
+                govId = e.GovId,
+                salaryType = e.SalaryType,
+                workerId = e.WorkerId
             });
         }
 
@@ -60,14 +72,20 @@ namespace Mona_Interior.Controllers
             {
                 Name = dto.Name,
                 Role = dto.Role,
-                Department = dto.Department,
+                Department = dto.Department ?? "",
                 Phone = dto.Phone,
-                Email = dto.Email,
+                Email = dto.Email ?? "",
                 Salary = dto.Salary,
                 JoinDate = string.IsNullOrEmpty(dto.JoinDate)
                     ? DateTime.Now.ToString("yyyy-MM-dd")
                     : dto.JoinDate,
-                Status = dto.Status
+                Status = dto.Status,
+                Address = dto.Address ?? "",
+                AdvanceBalance = dto.AdvanceBalance,
+                BankDetails = dto.BankDetails ?? "",
+                GovId = dto.GovId ?? "",
+                SalaryType = dto.SalaryType ?? "Monthly",
+                WorkerId = dto.WorkerId ?? ""
             };
             _db.Employees.Add(emp);
             await _db.SaveChangesAsync();
@@ -83,12 +101,18 @@ namespace Mona_Interior.Controllers
 
             emp.Name = dto.Name;
             emp.Role = dto.Role;
-            emp.Department = dto.Department;
+            emp.Department = dto.Department ?? "";
             emp.Phone = dto.Phone;
-            emp.Email = dto.Email;
+            emp.Email = dto.Email ?? "";
             emp.Salary = dto.Salary;
             emp.JoinDate = dto.JoinDate;
             emp.Status = dto.Status;
+            emp.Address = dto.Address ?? "";
+            emp.AdvanceBalance = dto.AdvanceBalance;
+            emp.BankDetails = dto.BankDetails ?? "";
+            emp.GovId = dto.GovId ?? "";
+            emp.SalaryType = dto.SalaryType ?? "Monthly";
+            emp.WorkerId = dto.WorkerId ?? "";
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "Employee updated" });

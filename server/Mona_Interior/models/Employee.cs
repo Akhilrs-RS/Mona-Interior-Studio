@@ -22,5 +22,18 @@ namespace Mona_Interior.models
 
         // "Active" | "Inactive"
         public string Status { get; set; } = "Active";
+
+        public string Address { get; set; } = string.Empty;
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal AdvanceBalance { get; set; } = 0;
+
+        public string BankDetails { get; set; } = string.Empty;
+
+        public string GovId { get; set; } = string.Empty;
+
+        public string SalaryType { get; set; } = "Monthly";
+
+        public string WorkerId { get; set; } = string.Empty;
     }
 }

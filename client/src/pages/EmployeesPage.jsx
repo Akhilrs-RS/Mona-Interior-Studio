@@ -43,15 +43,7 @@ const EmployeesPage = () => {
     fetch('http://localhost:5000/api/employees')
       .then(res => res.json())
       .then(data => {
-        // Map database fields to frontend camelCase fields if necessary
-        const mapped = data.map(emp => ({
-          ...emp,
-          workerId: emp.worker_id,
-          salaryType: emp.salary_type,
-          bankDetails: emp.bank_details,
-          govId: emp.gov_id
-        }));
-        setEmployees(mapped);
+        setEmployees(data);
       })
       .catch(console.error);
   }, []);
@@ -72,28 +64,60 @@ const EmployeesPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Parse numeric fields to ensure correct data types
+      const payload = {
+        ...formData,
+        salary: parseFloat(formData.salary) || 0,
+        ...(formData.advanceBalance !== undefined && { 
+          advanceBalance: parseFloat(formData.advanceBalance) || 0 
+        })
+      };
+
       if (editingId) {
         const empToUpdate = employees.find(e => e.id === editingId);
-        const payload = { ...formData, workerId: empToUpdate.workerId };
-        await fetch(`http://localhost:5000/api/employees/${editingId}`, {
+        // Ensure workerId is preserved for existing employees
+        const finalPayload = { ...payload, workerId: empToUpdate.workerId };
+        
+        const res = await fetch(`http://localhost:5000/api/employees/${editingId}`, {
           method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(payload)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(finalPayload)
         });
-        const updated = employees.map((emp) => emp.id === editingId ? { ...emp, ...payload } : emp);
-        saveToStorage(updated);
+
+        if (res.ok) {
+          const updated = employees.map((emp) => 
+            emp.id === editingId ? { ...emp, ...finalPayload } : emp
+          );
+          setEmployees(updated);
+          closeModal();
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          alert(`Failed to update employee: ${errorData.message || res.statusText || "Unknown error"}`);
+        }
       } else {
-        const newEmp = { ...formData, id: Date.now(), workerId: generateWorkerId() };
-        await fetch('http://localhost:5000/api/employees', {
+        // Handle workerId and generate payload for new employees
+        const finalPayload = { ...payload, workerId: generateWorkerId() };
+        
+        const res = await fetch('http://localhost:5000/api/employees', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(newEmp)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(finalPayload)
         });
-        saveToStorage([...employees, newEmp]);
+
+        if (res.ok) {
+          const result = await res.json();
+          // Use the ID returned from the backend merged with local data
+          const finalNewEmp = { ...finalPayload, id: result.id || Date.now() };
+          setEmployees([...employees, finalNewEmp]);
+          closeModal();
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          alert(`Failed to create employee: ${errorData.message || res.statusText || "Unknown error"}`);
+        }
       }
-      closeModal();
     } catch (error) {
-      console.error(error);
+      console.error("Submit Error:", error);
+      alert("A network error occurred while saving. Please check your connection.");
     }
   };
 
@@ -112,7 +136,7 @@ const EmployeesPage = () => {
     const matchesSearch =
       emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       emp.phone.includes(searchTerm) ||
-      emp.workerId.toLowerCase().includes(searchTerm.toLowerCase());
+      (emp.workerId && emp.workerId.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesRole = roleFilter === "All Roles" || emp.role === roleFilter;
     const matchesStatus = statusFilter === "All Status" || emp.status === statusFilter;
     return matchesSearch && matchesRole && matchesStatus;
