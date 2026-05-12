@@ -698,19 +698,7 @@ export default function BillingPage() {
 
       {/* Work Entry Row */}
       <div className="bg-orange-50 p-1 grid grid-cols-12 gap-1 border-b border-orange-200">
-        <div className="col-span-4">
-          <label className="block text-[10px] font-bold text-orange-800 text-center uppercase">
-            Work Description
-          </label>
-          <input
-            placeholder="e.g. Living Room False Ceiling"
-            value={newItem.work}
-            onChange={(e) => setNewItem({ ...newItem, work: e.target.value })}
-            onKeyPress={(e) => e.key === "Enter" && addItem()}
-            className="w-full bg-white border border-orange-200 px-2 py-1 text-sm outline-none focus:border-orange-400 font-medium"
-          />
-        </div>
-        <div className="col-span-1">
+        <div className="col-span-2">
           <label className="block text-[10px] font-bold text-orange-800 text-center uppercase">
             Unit
           </label>
@@ -725,7 +713,7 @@ export default function BillingPage() {
             <option>LS</option>
           </select>
         </div>
-        <div className="col-span-1">
+        <div className="col-span-2">
           <label className="block text-[10px] font-bold text-orange-800 text-center uppercase">
             Area
           </label>
@@ -748,7 +736,7 @@ export default function BillingPage() {
             className="w-full bg-white border border-orange-200 px-2 py-1 text-sm text-right outline-none focus:border-orange-400 font-bold"
           />
         </div>
-        <div className="col-span-1">
+        <div className="col-span-2">
           <label className="block text-[10px] font-bold text-orange-800 text-center uppercase">
             GST %
           </label>
@@ -761,7 +749,7 @@ export default function BillingPage() {
             className="w-full bg-white border border-orange-200 px-2 py-1 text-sm text-center outline-none focus:border-orange-400"
           />
         </div>
-        <div className="col-span-2">
+        <div className="col-span-3">
           <label className="block text-[10px] font-bold text-orange-800 text-center uppercase">
             Total Incl Tax ₹
           </label>
