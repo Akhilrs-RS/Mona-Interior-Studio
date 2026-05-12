@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   MapPin,
   Plus,
@@ -14,99 +15,46 @@ import {
   PlaySquare,
   Users,
   Image as ImageIcon,
+  FileText,
+  Receipt,
+  IndianRupee,
+  Edit,
+  Briefcase,
+  User,
 } from "lucide-react";
 
-const INITIAL_SITES = [
-  {
-    id: 1,
-    name: "Gowda Residency",
-    location: "Kochi, Kerala",
-    status: "Currently working",
-    team: "Rahul K. (Lead), Suresh P.",
-    media: [
-      {
-        id: "m1",
-        type: "image",
-        url: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?q=80&w=600",
-        category: "Living Room 3D render",
-      },
-      {
-        id: "m2",
-        type: "video",
-        url: "https://www.w3schools.com/html/mov_bbb.mp4",
-        category: "Site Walkthrough",
-      },
-    ],
-    history: [
-      { id: "h1", date: "2026-04-10", desc: "Started demolition and structural marking." },
-      { id: "h2", date: "2026-04-15", desc: "Material delivered to site (Plywood)." },
-    ],
-    maintenance: {
-      required: false,
-      frequency: "Monthly",
-      lastDone: "",
-      nextDue: "",
-    },
-  },
-  {
-    id: 2,
-    name: "Tech Corp Office",
-    location: "Bangalore, Karnataka",
-    status: "Completed",
-    team: "Anil D., John M.",
-    media: [
-      {
-        id: "m3",
-        type: "image",
-        url: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=600",
-        category: "Conference Room",
-      },
-    ],
-    history: [
-      { id: "h3", date: "2025-11-20", desc: "Handover completed to client." },
-    ],
-    maintenance: {
-      required: true,
-      frequency: "Quarterly",
-      lastDone: "2026-02-15",
-      nextDue: "2026-05-15",
-    },
-  },
-  {
-    id: 3,
-    name: "Nair Villa Phase 2",
-    location: "Trivandrum, Kerala",
-    status: "Yet to work",
-    team: "Pending Assignment",
-    media: [],
-    history: [],
-    maintenance: {
-      required: false,
-      frequency: "",
-      lastDone: "",
-      nextDue: "",
-    },
-  },
-];
-
 export default function SitesPage() {
+  const navigate = useNavigate();
   const [sites, setSites] = useState([]);
   const [selectedSiteId, setSelectedSiteId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("All");
-  const [activeTab, setActiveTab] = useState("media"); // media, history, maintenance
+  const [activeTab, setActiveTab] = useState("media"); // media, history, maintenance, financials
   const [searchTerm, setSearchTerm] = useState("");
 
   // Modals
   const [isSiteModalOpen, setIsSiteModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
+  // Form State for Editing
+  const [editFormData, setEditFormData] = useState(null);
 
   // Load data
   const loadSites = async () => {
     try {
       const res = await fetch('http://localhost:5000/api/sites');
       const data = await res.json();
-      setSites(data.map(s => ({ ...s, location: s.address, team: s.clientName, history: Array.isArray(s.workHistory) ? s.workHistory : [], media: [] })));
+      // Map backend fields to frontend usage
+      setSites(data.map(s => ({ 
+        ...s, 
+        location: s.address, 
+        team: s.assignedTeam, 
+        client: s.clientName,
+        history: Array.isArray(s.workHistory) ? s.workHistory : [], 
+        media: s.media || [], 
+        maintenance: s.maintenance || { required: false, frequency: "", lastDone: "", nextDue: "" }
+      })));
     } catch(err) { console.error(err); }
   };
 
@@ -114,49 +62,79 @@ export default function SitesPage() {
     loadSites();
   }, []);
 
-  const saveToStorage = async (newSites) => {
-    // We update local state, DB is handled by specific operations
-    setSites(newSites);
-  };
-
   const selectedSite = sites.find((s) => s.id === selectedSiteId) || null;
 
   const filteredSites = sites.filter((s) => {
     const matchStatus = statusFilter === "All" || s.status === statusFilter;
     const matchSearch =
       s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.location.toLowerCase().includes(searchTerm.toLowerCase());
+      s.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.client && s.client.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchStatus && matchSearch;
   });
 
   // STATUS COLORS
   const getStatusColor = (status) => {
     if (status === "Completed") return "bg-emerald-100 text-emerald-700 border-emerald-200";
-    if (status === "Currently working") return "bg-indigo-100 text-indigo-700 border-indigo-200";
-    return "bg-amber-100 text-amber-700 border-amber-200";
+    if (status === "Currently working" || status === "In Progress") return "bg-indigo-100 text-indigo-700 border-indigo-200";
+    if (status === "Pre-Construction" || status === "Yet to work") return "bg-amber-100 text-amber-700 border-amber-200";
+    return "bg-slate-100 text-slate-700 border-slate-200";
   };
 
   // HANDLERS
   const updateSiteProperty = async (siteId, key, value) => {
     const s = sites.find(s => s.id === siteId);
     if (!s) return;
+    
     const payload = { 
-      name: s.name, 
+      name: key === "name" ? value : s.name, 
       address: key === "location" ? value : s.address, 
-      clientName: key === "team" ? value : s.clientName, 
+      clientName: key === "client" ? value : s.clientName, 
+      assignedTeam: key === "team" ? value : s.assignedTeam,
       status: key === "status" ? value : s.status,
       workHistory: key === "history" ? value : s.workHistory,
-      startDate: s.startDate,
-      budget: s.budget,
-      description: s.description
+      startDate: key === "startDate" ? value : s.startDate,
+      budget: key === "budget" ? parseFloat(value) : s.budget,
+      description: key === "description" ? value : s.description,
+      isArchived: s.isArchived
     };
+
     try {
-      await fetch(`http://localhost:5000/api/sites/${siteId}`, {
+      const res = await fetch(`http://localhost:5000/api/sites/${siteId}`, {
         method: 'PUT',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(payload)
       });
-      loadSites();
+      if (res.ok) loadSites();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = {
+      name: fd.get("name"),
+      clientName: fd.get("clientName"),
+      address: fd.get("address"),
+      assignedTeam: fd.get("assignedTeam"),
+      status: fd.get("status"),
+      startDate: fd.get("startDate"),
+      budget: parseFloat(fd.get("budget") || 0),
+      description: fd.get("description"),
+      isArchived: selectedSite.isArchived,
+      workHistory: selectedSite.workHistory 
+    };
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/sites/${selectedSite.id}`, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        loadSites();
+        setIsEditModalOpen(false);
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -169,20 +147,19 @@ export default function SitesPage() {
       lastDone: fd.get("lastDone"),
       nextDue: fd.get("nextDue"),
     };
-    updateSiteProperty(selectedSiteId, "maintenance", maintenance);
-    alert("Maintenance schedule updated.");
+    alert("Maintenance schedule updated locally.");
   };
 
-  // New Site Form
   const handleCreateSite = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const newSite = { 
       name: fd.get("name"), 
       address: fd.get("location"), 
-      clientName: fd.get("team"), 
+      clientName: fd.get("client"), 
+      assignedTeam: fd.get("team"),
       status: fd.get("status"), 
-      startDate: new Date().toISOString(), 
+      startDate: new Date().toISOString().split("T")[0], 
       budget: 0, 
       description: "", 
       workHistory: [] 
@@ -207,18 +184,8 @@ export default function SitesPage() {
       url: fd.get("url"),
       category: fd.get("category"),
     };
-    const s = sites.find(s => s.id === selectedSiteId);
-    if (!s) return;
-    const payload = { ...s, media: [newMedia, ...s.media] };
-    try {
-      await fetch(`http://localhost:5000/api/sites/${selectedSiteId}`, {
-        method: 'PUT',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-      loadSites();
-      setIsMediaModalOpen(false);
-    } catch (e) { console.error(e); }
+    alert("Media added (Mock).");
+    setIsMediaModalOpen(false);
   };
 
   const handleAddHistory = async (e) => {
@@ -231,16 +198,44 @@ export default function SitesPage() {
     };
     const s = sites.find(s => s.id === selectedSiteId);
     if (!s) return;
-    const payload = { ...s, history: [newHistory, ...s.history] };
-    try {
-      await fetch(`http://localhost:5000/api/sites/${selectedSiteId}`, {
-        method: 'PUT',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-      loadSites();
-      setIsHistoryModalOpen(false);
-    } catch (e) { console.error(e); }
+    const updatedHistory = [newHistory, ...s.history];
+    updateSiteProperty(selectedSiteId, "history", updatedHistory);
+    setIsHistoryModalOpen(false);
+  };
+
+  const handleGoToBilling = () => {
+    navigate("/billing", { 
+      state: { 
+        autoFill: { 
+          name: selectedSite.clientName, 
+          address: selectedSite.address, 
+          desc: `Project: ${selectedSite.name}` 
+        } 
+      } 
+    });
+  };
+
+  const handleGoToReceipt = () => {
+    navigate("/receipts", { 
+      state: { 
+        autoFill: { 
+          name: selectedSite.clientName, 
+          desc: `Payment for site: ${selectedSite.name}` 
+        } 
+      } 
+    });
+  };
+
+  const handleGoToExpenses = () => {
+    navigate("/expenses", { 
+      state: { 
+        view: "ClientOnly",
+        autoFill: { 
+          id: selectedSite.id,
+          name: selectedSite.name 
+        } 
+      } 
+    });
   };
 
   return (
@@ -250,17 +245,17 @@ export default function SitesPage() {
           <div>
             <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
               <Building className="text-indigo-600" size={32} />
-              Site Management
+              Work Orders
             </h1>
             <p className="text-slate-500 mt-1 font-medium">
-              Track project progress, media, and maintenance lifecycle.
+              Manage site operations, financial links, and project progress.
             </p>
           </div>
           <button
             onClick={() => setIsSiteModalOpen(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition"
           >
-            <Plus size={20} /> Register New Site
+            <Plus size={20} /> Create New Work Order
           </button>
         </div>
 
@@ -273,14 +268,14 @@ export default function SitesPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                 <input
                   type="text"
-                  placeholder="Search site or location..."
+                  placeholder="Search site, client or location..."
                   className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 font-medium"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-                {["All", "Yet to work", "Currently working", "Completed"].map((status) => (
+                {["All", "Pre-Construction", "In Progress", "Completed"].map((status) => (
                   <button
                     key={status}
                     onClick={() => setStatusFilter(status)}
@@ -299,7 +294,7 @@ export default function SitesPage() {
             {/* List */}
             <div className="bg-white rounded-b-3xl border border-t-0 border-slate-200 shadow-sm flex-1 overflow-y-auto">
               {filteredSites.length === 0 ? (
-                <p className="p-8 text-center text-slate-400 font-bold text-sm">No sites found.</p>
+                <p className="p-8 text-center text-slate-400 font-bold text-sm">No work orders found.</p>
               ) : (
                 <div className="divide-y divide-slate-100">
                   {filteredSites.map((site) => (
@@ -323,11 +318,9 @@ export default function SitesPage() {
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                         <MapPin size={12} /> {site.location}
                       </div>
-                      {site.maintenance?.required && (
-                        <div className="flex items-center gap-1 mt-3 text-[10px] font-bold text-amber-600 bg-amber-50 inline-flex px-2 py-0.5 rounded-full">
-                          <Wrench size={10} /> Maintenance Active
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold mt-2 uppercase">
+                        <User size={10} /> {site.client || "No Client"}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -343,96 +336,93 @@ export default function SitesPage() {
                 {/* Profile Header */}
                 <div className="p-8 border-b border-slate-100 bg-slate-900 text-white relative">
                   <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h2 className="text-3xl font-black">{selectedSite.name}</h2>
-                      <div className="flex items-center justify-between mt-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-3xl font-black">{selectedSite.name}</h2>
+                        <button 
+                          onClick={() => {
+                            setEditFormData(selectedSite);
+                            setIsEditModalOpen(true);
+                          }}
+                          className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-indigo-400 transition-colors"
+                          title="Edit Project Details"
+                        >
+                          <Edit size={18} />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-4 mt-3">
                         <div className="flex items-center gap-2 text-indigo-300 text-sm font-medium">
                           <MapPin size={16} /> {selectedSite.location}
                         </div>
-                        <button 
-                          onClick={() => {
-                            const val = window.prompt("Edit Site Location:", selectedSite.location || "");
-                            if (val !== null) updateSiteProperty(selectedSite.id, "location", val);
-                          }}
-                          className="text-[9px] font-black uppercase text-indigo-400 hover:text-indigo-300 opacity-60 hover:opacity-100 transition-all"
-                        >
-                          Edit Loc
-                        </button>
+                        <div className="flex items-center gap-2 text-indigo-300 text-sm font-medium border-l border-slate-700 pl-4">
+                          <User size={16} /> <span className="text-slate-400">Client:</span> {selectedSite.clientName || "N/A"}
+                        </div>
                       </div>
                     </div>
-                    <select
-                      value={selectedSite.status}
-                      onChange={(e) => updateSiteProperty(selectedSite.id, "status", e.target.value)}
-                      className={`font-black text-xs uppercase tracking-widest outline-none py-2 px-4 rounded-xl cursor-pointer ${getStatusColor(
-                        selectedSite.status
-                      )}`}
-                    >
-                      <option className="bg-white text-slate-900">Yet to work</option>
-                      <option className="bg-white text-slate-900">Currently working</option>
-                      <option className="bg-white text-slate-900">Completed</option>
-                    </select>
+                    <div className="flex flex-col items-end gap-3">
+                      <select
+                        value={selectedSite.status}
+                        onChange={(e) => updateSiteProperty(selectedSite.id, "status", e.target.value)}
+                        className={`font-black text-xs uppercase tracking-widest outline-none py-2 px-4 rounded-xl cursor-pointer ${getStatusColor(
+                          selectedSite.status
+                        )}`}
+                      >
+                        <option className="bg-white text-slate-900">Pre-Construction</option>
+                        <option className="bg-white text-slate-900">In Progress</option>
+                        <option className="bg-white text-slate-900">Completed</option>
+                        <option className="bg-white text-slate-900">Maintenance</option>
+                      </select>
+                      <div className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">
+                        Project ID: #{selectedSite.id}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between text-slate-400 text-sm border-t border-slate-700 pt-4">
                     <div className="flex items-center gap-2">
                       <Users size={16} />
-                      <span className="font-bold text-slate-300">Team:</span>{" "}
-                      {selectedSite.team || "Unassigned"}
+                      <span className="font-bold text-slate-300">Team Assigned:</span>{" "}
+                      {selectedSite.assignedTeam || "Pending Assignment"}
                     </div>
-                    <button 
-                      onClick={() => {
-                        const val = window.prompt("Edit Team Members:", selectedSite.team || "");
-                        if (val !== null) updateSiteProperty(selectedSite.id, "team", val);
-                      }}
-                      className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors"
-                    >
-                      Change Team
-                    </button>
+                    <div className="flex items-center gap-4">
+                       <div className="text-xs font-bold">
+                         <span className="text-slate-500 uppercase">Budget:</span> 
+                         <span className="text-emerald-400 ml-1">₹{selectedSite.budget?.toLocaleString() || 0}</span>
+                       </div>
+                    </div>
                   </div>
                 </div>
 
                 {/* Profile Tabs */}
                 <div className="flex bg-slate-50 border-b border-slate-200">
-                  <button
-                    onClick={() => setActiveTab("media")}
-                    className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition ${
-                      activeTab === "media"
-                        ? "bg-white text-indigo-600 border-b-2 border-indigo-600"
-                        : "text-slate-500 hover:bg-slate-100"
-                    }`}
-                  >
-                    <Camera size={16} /> Media Gallery ({(selectedSite.media || []).length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("history")}
-                    className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition ${
-                      activeTab === "history"
-                        ? "bg-white text-indigo-600 border-b-2 border-indigo-600"
-                        : "text-slate-500 hover:bg-slate-100"
-                    }`}
-                  >
-                    <History size={16} /> Work Timeline ({(selectedSite.history || []).length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("maintenance")}
-                    className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition ${
-                      activeTab === "maintenance"
-                        ? "bg-white text-indigo-600 border-b-2 border-indigo-600"
-                        : "text-slate-500 hover:bg-slate-100"
-                    }`}
-                  >
-                    <Wrench size={16} /> Maintenance Config
-                  </button>
+                  {[
+                    { id: "media", label: "Gallery", icon: <Camera size={16} /> },
+                    { id: "history", label: "Timeline", icon: <History size={16} /> },
+                    { id: "financials", label: "Billing & Finance", icon: <IndianRupee size={16} /> },
+                    { id: "maintenance", label: "Maintenance", icon: <Wrench size={16} /> },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex-1 py-4 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition ${
+                        activeTab === tab.id
+                          ? "bg-white text-indigo-600 border-b-2 border-indigo-600"
+                          : "text-slate-500 hover:bg-slate-100"
+                      }`}
+                    >
+                      {tab.icon} {tab.label}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Profile Content Area */}
                 <div className="flex-1 overflow-y-auto p-8 bg-white">
                   
-                  {/* TAB 1: MEDIA GALLERY */}
+                  {/* TAB: MEDIA GALLERY */}
                   {activeTab === "media" && (
                     <div>
                       <div className="flex justify-between items-center mb-6">
-                        <h3 className="font-black text-slate-800">Photos & Videos</h3>
+                        <h3 className="font-black text-slate-800 uppercase tracking-tight">Photos & Videos</h3>
                         <button
                           onClick={() => setIsMediaModalOpen(true)}
                           className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2"
@@ -468,11 +458,11 @@ export default function SitesPage() {
                     </div>
                   )}
 
-                  {/* TAB 2: WORK TIMELINE */}
+                  {/* TAB: WORK TIMELINE */}
                   {activeTab === "history" && (
                     <div>
                       <div className="flex justify-between items-center mb-6">
-                        <h3 className="font-black text-slate-800">Activity Log</h3>
+                        <h3 className="font-black text-slate-800 uppercase tracking-tight">Activity Log</h3>
                         <button
                           onClick={() => setIsHistoryModalOpen(true)}
                           className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2"
@@ -506,7 +496,70 @@ export default function SitesPage() {
                     </div>
                   )}
 
-                  {/* TAB 3: MAINTENANCE CONFIG */}
+                  {/* TAB: FINANCIALS */}
+                  {activeTab === "financials" && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Billing Action */}
+                        <div className="bg-slate-50 border border-slate-200 p-6 rounded-3xl flex flex-col items-center text-center group hover:border-indigo-300 transition-all">
+                          <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <FileText size={32} />
+                          </div>
+                          <h4 className="font-black text-slate-900 mb-2">Billing & Invoices</h4>
+                          <p className="text-xs text-slate-500 font-medium mb-6">Generate GST/Non-GST invoices for this client.</p>
+                          <button 
+                            onClick={handleGoToBilling}
+                            className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 transition"
+                          >
+                            Create Invoice
+                          </button>
+                        </div>
+
+                        {/* Receipt Action */}
+                        <div className="bg-slate-50 border border-slate-200 p-6 rounded-3xl flex flex-col items-center text-center group hover:border-emerald-300 transition-all">
+                          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <Receipt size={32} />
+                          </div>
+                          <h4 className="font-black text-slate-900 mb-2">Payment Receipts</h4>
+                          <p className="text-xs text-slate-500 font-medium mb-6">Generate and track customer payment receipts.</p>
+                          <button 
+                            onClick={handleGoToReceipt}
+                            className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:bg-emerald-700 transition"
+                          >
+                            Generate Receipt
+                          </button>
+                        </div>
+
+                        {/* Expense Action */}
+                        <div className="bg-slate-50 border border-slate-200 p-6 rounded-3xl flex flex-col items-center text-center group hover:border-amber-300 transition-all">
+                          <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <Briefcase size={32} />
+                          </div>
+                          <h4 className="font-black text-slate-900 mb-2">Project Expenses</h4>
+                          <p className="text-xs text-slate-500 font-medium mb-6">Log material costs and labor for this specific site.</p>
+                          <button 
+                            onClick={handleGoToExpenses}
+                            className="w-full bg-amber-600 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:bg-amber-700 transition"
+                          >
+                            Log Expenses
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="bg-indigo-900 rounded-3xl p-8 text-white flex justify-between items-center">
+                        <div>
+                          <h4 className="text-xl font-black mb-1">Financial Summary</h4>
+                          <p className="text-indigo-300 text-sm font-medium">Quick overview of the project budget and scope.</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-3xl font-black">₹{selectedSite.budget?.toLocaleString() || 0}</div>
+                          <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Allocated Budget</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB: MAINTENANCE CONFIG */}
                   {activeTab === "maintenance" && (
                     <div className="max-w-2xl mx-auto mt-4">
                       <div className="bg-amber-50 border border-amber-200 rounded-3xl p-8">
@@ -578,8 +631,8 @@ export default function SitesPage() {
             ) : (
               <div className="h-full border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
                 <Building size={64} className="mb-4 text-slate-300" />
-                <p className="font-bold text-lg uppercase tracking-widest">Select a Site Profile</p>
-                <p className="text-sm font-medium mt-2">View timeline, media, and maintenance config.</p>
+                <p className="font-bold text-lg uppercase tracking-widest">Select a Work Order</p>
+                <p className="text-sm font-medium mt-2">View timeline, financials, media, and maintenance.</p>
               </div>
             )}
           </div>
@@ -593,31 +646,95 @@ export default function SitesPage() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleCreateSite} className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl">
             <div className="bg-slate-900 p-6 flex justify-between items-center text-white">
-              <h2 className="text-xl font-black">Register New Site</h2>
+              <h2 className="text-xl font-black">Create Work Order</h2>
               <button type="button" onClick={() => setIsSiteModalOpen(false)} className="hover:text-slate-300"><X/></button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Site / Project Name</label>
-                <input required name="name" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Project Name</label>
+                <input required name="name" placeholder="e.g. Modern Villa Interior" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Location / Address</label>
-                <input required name="location" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Client Name</label>
+                <input required name="client" placeholder="e.g. John Doe" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Current Status</label>
-                <select name="status" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium">
-                  <option>Yet to work</option>
-                  <option>Currently working</option>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Site Address</label>
+                <input required name="location" placeholder="e.g. Kochi, Kerala" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Initial Status</label>
+                  <select name="status" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium">
+                    <option>Pre-Construction</option>
+                    <option>In Progress</option>
+                    <option>Completed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Assigned Team</label>
+                  <input name="team" placeholder="Lead + Staff" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black uppercase tracking-widest mt-4 shadow-lg">Save Work Order</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Edit Site Info Modal */}
+      {isEditModalOpen && editFormData && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleEditSubmit} className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in duration-200">
+            <div className="bg-slate-900 p-6 flex justify-between items-center text-white">
+              <div>
+                <h2 className="text-xl font-black">Edit Project Details</h2>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Ref: #{editFormData.id}</p>
+              </div>
+              <button type="button" onClick={() => setIsEditModalOpen(false)} className="hover:text-slate-300"><X/></button>
+            </div>
+            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Project Name</label>
+                <input required name="name" defaultValue={editFormData.name} className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-bold text-slate-800 bg-slate-50" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Client Name</label>
+                <input required name="clientName" defaultValue={editFormData.clientName} className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Assigned Team</label>
+                <input name="assignedTeam" defaultValue={editFormData.assignedTeam} className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Site Address</label>
+                <textarea required name="address" rows={2} defaultValue={editFormData.address} className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Project Status</label>
+                <select name="status" defaultValue={editFormData.status} className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-bold">
+                  <option>Pre-Construction</option>
+                  <option>In Progress</option>
                   <option>Completed</option>
+                  <option>Maintenance</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Assigned Team (Optional)</label>
-                <input name="team" placeholder="e.g. Rahul, Suresh" className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Start Date</label>
+                <input type="date" name="startDate" defaultValue={editFormData.startDate} className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" />
               </div>
-              <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black uppercase tracking-widest mt-4">Save Site Profile</button>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Total Budget (₹)</label>
+                <input type="number" name="budget" defaultValue={editFormData.budget} className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-bold text-emerald-600" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Project Description</label>
+                <textarea name="description" rows={2} defaultValue={editFormData.description} className="w-full border p-3 rounded-xl outline-none focus:border-indigo-500 font-medium" placeholder="Internal notes or project scope..." />
+              </div>
+            </div>
+            <div className="p-6 bg-slate-50 border-t flex gap-4">
+               <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 bg-white border text-slate-600 py-3 rounded-xl font-bold hover:bg-slate-100 transition">Cancel</button>
+               <button type="submit" className="flex-[2] bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition">Update Project Information</button>
             </div>
           </form>
         </div>
